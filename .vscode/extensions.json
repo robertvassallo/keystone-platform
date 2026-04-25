@@ -1,0 +1,31 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "stylelint.vscode-stylelint",
+    "bradlc.vscode-tailwindcss",
+    "mikestead.dotenv",
+    "editorconfig.editorconfig",
+    "streetsidesoftware.code-spell-checker",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "charliermarsh.ruff",
+    "ms-python.mypy-type-checker",
+    "batisteo.vscode-django",
+    "monosans.djlint",
+    "dorzey.vscode-sqlfluff",
+    "ms-azuretools.vscode-docker",
+    "github.vscode-pull-request-github",
+    "github.vscode-github-actions",
+    "yzhang.markdown-all-in-one",
+    "davidanson.vscode-markdownlint",
+    "redhat.vscode-yaml",
+    "tamasfe.even-better-toml",
+    "anthropic.claude-code"
+  ],
+  "unwantedRecommendations": [
+    "ms-python.flake8",
+    "ms-python.black-formatter",
+    "ms-python.isort"
+  ]
+}

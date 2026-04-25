@@ -1,0 +1,54 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Next.js: server-side",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm dev",
+      "cwd": "${workspaceFolder}/apps/web"
+    },
+    {
+      "name": "Next.js: client-side (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/apps/web"
+    },
+    {
+      "name": "Django: runserver",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/api/manage.py",
+      "args": ["runserver", "0.0.0.0:8000"],
+      "django": true,
+      "justMyCode": false,
+      "envFile": "${workspaceFolder}/apps/api/.env"
+    },
+    {
+      "name": "Django: pytest current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-x", "${file}"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Django: pytest all",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-x"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full stack (API + Web)",
+      "configurations": ["Django: runserver", "Next.js: server-side"],
+      "stopAll": true
+    }
+  ]
+}

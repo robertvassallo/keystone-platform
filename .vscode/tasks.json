@@ -1,0 +1,93 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "web: dev",
+      "type": "shell",
+      "command": "pnpm dev",
+      "options": { "cwd": "${workspaceFolder}/apps/web" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "web: lint",
+      "type": "shell",
+      "command": "pnpm lint",
+      "options": { "cwd": "${workspaceFolder}/apps/web" },
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "web: typecheck",
+      "type": "shell",
+      "command": "pnpm exec tsc --noEmit",
+      "options": { "cwd": "${workspaceFolder}/apps/web" },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "web: format",
+      "type": "shell",
+      "command": "pnpm exec prettier --write .",
+      "options": { "cwd": "${workspaceFolder}" }
+    },
+    {
+      "label": "api: runserver",
+      "type": "shell",
+      "command": "uv run python manage.py runserver 0.0.0.0:8000",
+      "options": { "cwd": "${workspaceFolder}/apps/api" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "api: lint",
+      "type": "shell",
+      "command": "uv run ruff check .",
+      "options": { "cwd": "${workspaceFolder}/apps/api" },
+      "problemMatcher": []
+    },
+    {
+      "label": "api: format",
+      "type": "shell",
+      "command": "uv run ruff format .",
+      "options": { "cwd": "${workspaceFolder}/apps/api" }
+    },
+    {
+      "label": "api: typecheck",
+      "type": "shell",
+      "command": "uv run mypy .",
+      "options": { "cwd": "${workspaceFolder}/apps/api" },
+      "problemMatcher": []
+    },
+    {
+      "label": "api: test",
+      "type": "shell",
+      "command": "uv run pytest",
+      "options": { "cwd": "${workspaceFolder}/apps/api" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "api: migrate",
+      "type": "shell",
+      "command": "uv run python manage.py migrate",
+      "options": { "cwd": "${workspaceFolder}/apps/api" }
+    },
+    {
+      "label": "sql: lint",
+      "type": "shell",
+      "command": "sqlfluff lint .",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "all: lint",
+      "dependsOn": ["web: lint", "api: lint", "sql: lint"],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "all: typecheck",
+      "dependsOn": ["web: typecheck", "api: typecheck"],
+      "problemMatcher": []
+    }
+  ]
+}

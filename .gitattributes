@@ -1,0 +1,38 @@
+# Default: normalize line endings to LF on commit.
+* text=auto eol=lf
+
+# Explicit text files
+*.md       text eol=lf
+*.json     text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.toml     text eol=lf
+*.html     text eol=lf
+*.css      text eol=lf
+*.scss     text eol=lf
+*.js       text eol=lf
+*.mjs      text eol=lf
+*.cjs      text eol=lf
+*.ts       text eol=lf
+*.tsx      text eol=lf
+*.py       text eol=lf
+*.sql      text eol=lf
+
+# Binary — never diff or normalize
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.webp     binary
+*.ico      binary
+*.pdf      binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.otf      binary
+
+# GitHub: collapse generated files in PR diffs
+pnpm-lock.yaml  linguist-generated=true
+package-lock.json linguist-generated=true
+*.min.js        linguist-generated=true
+*.min.css       linguist-generated=true

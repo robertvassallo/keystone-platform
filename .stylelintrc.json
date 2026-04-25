@@ -1,0 +1,32 @@
+{
+  "extends": [
+    "stylelint-config-standard-scss",
+    "stylelint-config-prettier-scss"
+  ],
+  "plugins": ["stylelint-order"],
+  "rules": {
+    "selector-class-pattern": [
+      "^[a-z][a-z0-9]*(-[a-z0-9]+)*(__[a-z0-9]+(-[a-z0-9]+)*)?(--[a-z0-9]+(-[a-z0-9]+)*)?$",
+      {
+        "message": "Use BEM-style class names: block, block__element, block--modifier (kebab-case)."
+      }
+    ],
+    "scss/dollar-variable-pattern": [
+      "^[a-z][a-z0-9-]*$",
+      { "message": "SCSS variables in kebab-case." }
+    ],
+    "max-nesting-depth": 3,
+    "selector-max-compound-selectors": 4,
+    "selector-no-qualifying-type": [true, { "ignore": ["attribute"] }],
+    "no-descending-specificity": null,
+    "color-named": "never",
+    "color-no-hex": [true, {
+      "message": "Use design tokens (CSS custom properties) instead of raw hex values."
+    }],
+    "declaration-no-important": [true, {
+      "message": "Avoid !important; refactor selector specificity instead."
+    }],
+    "order/properties-alphabetical-order": true
+  },
+  "ignoreFiles": ["**/dist/**", "**/.next/**", "**/node_modules/**"]
+}
