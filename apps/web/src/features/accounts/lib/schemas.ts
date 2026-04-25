@@ -86,3 +86,20 @@ export const changePasswordSchema = z
   });
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+export const mfaSetupConfirmSchema = z.object({
+  code: z
+    .string()
+    .regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator app."),
+});
+
+export type MfaSetupConfirmInput = z.infer<typeof mfaSetupConfirmSchema>;
+
+export const mfaPasswordConfirmSchema = z.object({
+  currentPassword: z
+    .string()
+    .min(1, "Current password is required.")
+    .max(MAX_PASSWORD_LENGTH),
+});
+
+export type MfaPasswordConfirmInput = z.infer<typeof mfaPasswordConfirmSchema>;

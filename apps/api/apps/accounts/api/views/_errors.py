@@ -39,3 +39,27 @@ class WrongCurrentPasswordError(APIException):
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     default_detail = "Current password is incorrect."
     default_code = "wrong_current_password"
+
+
+class MFAAlreadyEnrolledError(APIException):
+    """422 — MFA setup requested but the account already has a confirmed device."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "Multi-factor authentication is already enabled."
+    default_code = "mfa_already_enrolled"
+
+
+class MFANotEnrolledError(APIException):
+    """422 — MFA-only action attempted without an enrolled device."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "Multi-factor authentication is not enabled."
+    default_code = "mfa_not_enrolled"
+
+
+class InvalidMFACodeError(APIException):
+    """422 — supplied MFA code (TOTP or recovery) did not validate."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "Invalid authentication code."
+    default_code = "invalid_mfa_code"

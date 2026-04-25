@@ -35,10 +35,15 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
+    "django_otp",
+    "django_otp.plugins.otp_totp",
     "apps.accounts.apps.AccountsConfig",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
+
+# Multi-factor authentication ----------------------------------------------
+OTP_TOTP_ISSUER = "Keystone"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
