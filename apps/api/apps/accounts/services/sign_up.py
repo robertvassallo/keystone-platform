@@ -15,14 +15,17 @@ from ._account_naming import (
     derive_account_slug,
     unique_slug,
 )
+from .send_email_verification import send_email_verification
 
 
 def sign_up(*, email: str, password: str) -> User:
     """Create a user, the tenant they belong to, and return the user.
 
     A fresh ``Account`` is created in the same transaction; the new
-    ``User.tenant`` FK points at it. Tenant invite / membership flows
-    will replace the auto-create path later.
+    ``User.tenant`` FK points at it. The verification email fires from
+    ``transaction.on_commit`` so a transaction rollback never leaks a
+    stray email to a user who doesn't actually exist. Tenant invite /
+    membership flows will replace the auto-create path later.
 
     Args:
         email: Login email; lowercased + stripped before storage.
@@ -51,8 +54,10 @@ def sign_up(*, email: str, password: str) -> User:
             name=derive_account_name(normalized),
             slug=unique_slug(derive_account_slug(normalized)),
         )
-        return User.objects.create_user(
+        user = User.objects.create_user(
             email=normalized,
             password=password,
             tenant=account,
         )
+        transaction.on_commit(lambda: send_email_verification(user=user))
+        return user

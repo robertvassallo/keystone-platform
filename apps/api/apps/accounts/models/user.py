@@ -50,6 +50,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text="The tenant this user belongs to. Required.",
     )
 
+    email_verified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp the user clicked the verification link. Null = unverified.",
+    )
+
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(

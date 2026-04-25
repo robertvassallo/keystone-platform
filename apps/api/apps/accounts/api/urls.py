@@ -6,6 +6,8 @@ from django.urls import URLPattern, URLResolver, path
 
 from apps.accounts.api.views import (
     ChangePasswordView,
+    EmailVerificationConfirmView,
+    EmailVerificationRequestView,
     MeView,
     MFADisableView,
     MFARegenerateRecoveryCodesView,
@@ -41,6 +43,16 @@ urlpatterns: list[URLPattern | URLResolver] = [
         "password/change/",
         ChangePasswordView.as_view(),
         name="password-change",
+    ),
+    path(
+        "email-verification/request/",
+        EmailVerificationRequestView.as_view(),
+        name="email-verification-request",
+    ),
+    path(
+        "email-verification/confirm/",
+        EmailVerificationConfirmView.as_view(),
+        name="email-verification-confirm",
     ),
     path("mfa/status/", MFAStatusView.as_view(), name="mfa-status"),
     path("mfa/verify/", MFAVerifyView.as_view(), name="mfa-verify"),

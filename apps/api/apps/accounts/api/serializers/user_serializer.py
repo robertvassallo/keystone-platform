@@ -22,6 +22,7 @@ class UserSerializer(serializers.ModelSerializer[User]):
             "is_active",
             "is_staff",
             "tenant",
+            "email_verified_at",
             "created_at",
         )
         read_only_fields = fields

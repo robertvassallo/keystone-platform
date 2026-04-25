@@ -33,6 +33,14 @@ class InvalidResetTokenError(APIException):
     default_code = "invalid_reset_token"
 
 
+class InvalidVerificationTokenError(APIException):
+    """422 — email-verification token is missing, malformed, or expired."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "This verification link is invalid or has expired."
+    default_code = "invalid_verification_token"
+
+
 class WrongCurrentPasswordError(APIException):
     """422 — change-password supplied an incorrect current password."""
 

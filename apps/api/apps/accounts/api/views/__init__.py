@@ -2,6 +2,8 @@
 
 from .account_view import AccountView
 from .change_password_view import ChangePasswordView
+from .email_verification_confirm_view import EmailVerificationConfirmView
+from .email_verification_request_view import EmailVerificationRequestView
 from .me_view import MeView
 from .mfa_disable_view import MFADisableView
 from .mfa_regenerate_codes_view import MFARegenerateRecoveryCodesView
@@ -20,6 +22,8 @@ from .users_list_view import UsersListView
 __all__ = [
     "AccountView",
     "ChangePasswordView",
+    "EmailVerificationConfirmView",
+    "EmailVerificationRequestView",
     "MFADisableView",
     "MFARegenerateRecoveryCodesView",
     "MFASetupConfirmView",
