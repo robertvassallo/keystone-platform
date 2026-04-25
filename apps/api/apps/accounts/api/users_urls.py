@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from django.urls import URLPattern, URLResolver, path
 
-from apps.accounts.api.views import UsersListView
+from apps.accounts.api.views import UserDetailView, UsersListView
 
 app_name = "users"
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("", UsersListView.as_view(), name="list"),
+    path("<uuid:id>/", UserDetailView.as_view(), name="detail"),
 ]

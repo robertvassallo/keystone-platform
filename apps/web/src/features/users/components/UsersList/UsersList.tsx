@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { JSX } from "react";
 
 import { cn } from "@/shared/lib/cn";
@@ -57,7 +58,12 @@ export function UsersList({ users }: UsersListProps): JSX.Element {
                 scope="row"
                 className="px-4 py-3 font-medium text-fg"
               >
-                {user.email}
+                <Link
+                  href={`/users/${user.id}`}
+                  className="text-accent hover:underline focus-visible:underline focus-visible:outline-none"
+                >
+                  {user.email}
+                </Link>
               </th>
               <td className="px-4 py-3">
                 <StatusBadges

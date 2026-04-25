@@ -13,6 +13,7 @@ from .password_reset_request_view import PasswordResetRequestView
 from .sign_in_view import SignInView
 from .sign_out_view import SignOutView
 from .sign_up_view import SignUpView
+from .user_detail_view import UserDetailView
 from .users_list_view import UsersListView
 
 __all__ = [
@@ -29,5 +30,6 @@ __all__ = [
     "SignInView",
     "SignOutView",
     "SignUpView",
+    "UserDetailView",
     "UsersListView",
 ]

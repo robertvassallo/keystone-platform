@@ -9,6 +9,12 @@ export interface UserListItem {
   readonly last_login: string | null;
 }
 
+export interface UserDetail extends UserListItem {
+  readonly is_superuser: boolean;
+  readonly tenant_id: string | null;
+  readonly updated_at: string;
+}
+
 export interface UsersListResponse {
   readonly data: readonly UserListItem[];
   readonly page: {
@@ -27,3 +33,8 @@ export interface UsersListOk extends UsersListResponse {
 }
 
 export type UsersListResult = UsersListOk | UsersListAccessDenied;
+
+export type UserDetailResult =
+  | { readonly kind: "ok"; readonly user: UserDetail }
+  | { readonly kind: "forbidden" }
+  | { readonly kind: "not_found" };
