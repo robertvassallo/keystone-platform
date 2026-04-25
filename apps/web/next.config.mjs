@@ -5,10 +5,25 @@
  * we know the asset origins (Stripe, Sentry, etc.) the first features need.
  */
 
+const INTERNAL_API_URL =
+  process.env.INTERNAL_API_URL ?? "http://localhost:8000";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+
+  // Proxy /api/* to Django so the browser sees same-origin (sessions +
+  // CSRF cookies travel without CORS gymnastics). In production this is
+  // handled at the load balancer / reverse proxy layer.
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${INTERNAL_API_URL}/api/:path*`,
+      },
+    ];
+  },
 
   async headers() {
     return [

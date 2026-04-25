@@ -33,8 +33,11 @@ select = [
 ignore = [
   "D100",  # missing module docstring (allow short modules)
   "D104",  # missing __init__ docstring
+  "D105",  # magic method docstring (e.g. __str__, __repr__)
+  "D107",  # __init__ docstring
   "D203",  # one-blank-line-before-class (conflicts with D211)
   "D213",  # multi-line-summary-second-line (conflicts with D212)
+  "N818",  # exception name suffix — project uses domain-style names (QuotaExceeded)
   "S101",  # assert in tests
 ]
 
@@ -42,6 +45,12 @@ ignore = [
 "**/migrations/*" = ["D", "N", "E501"]
 "**/tests/**" = ["D", "S", "PLR2004"]
 "**/settings/*.py" = ["S105", "S106"]
+# DRF nested Meta classes + thin view methods don't earn their own docstrings.
+"**/api/views/*.py" = ["D102"]
+"**/api/serializers/*.py" = ["D106"]
+"**/models/*.py" = ["D106"]  # Django Meta nested class
+"**/admin.py" = ["D"]
+"**/authentication.py" = ["D102"]  # one-line auth header overrides
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

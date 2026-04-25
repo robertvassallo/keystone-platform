@@ -10,6 +10,7 @@ dependencies = [
     "drf-spectacular>=0.29.0",
     "psycopg[binary]>=3.3.3",
     "structlog>=25.5.0",
+    "uuid-utils>=0.14.1",
 ]
 
 [tool.mypy]
@@ -32,8 +33,15 @@ module = ["*.migrations.*"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["environ.*"]
+module = ["environ.*", "factory.*", "uuid_utils.*"]
 ignore_missing_imports = true
+
+# factory_boy stubs and django-stubs interactions in tests are noisy without
+# adding limited value; relax the strict surface inside tests only.
+[[tool.mypy.overrides]]
+module = ["*.tests.*"]
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
@@ -54,6 +62,7 @@ skip_covered = true
 [dependency-groups]
 dev = [
     "django-stubs>=6.0.3",
+    "djangorestframework-stubs>=3.16.9",
     "factory-boy>=3.3.3",
     "mypy>=1.20.2",
     "pytest>=9.0.3",
