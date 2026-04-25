@@ -7,4 +7,8 @@ from django.urls import URLPattern, URLResolver, include, path
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("auth/", include("apps.accounts.urls", namespace="accounts")),
+    path(
+        "users/",
+        include("apps.accounts.api.users_urls", namespace="users"),
+    ),
 ]

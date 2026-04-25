@@ -223,4 +223,36 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — Users-list — first non-auth feature
+
+**Status:** accepted
+
+**Context:** First feature that isn't auth. Validates the granular feature-folder layout end-to-end on a read surface and gives staff a way to see who's signed up.
+
+**Decision:**
+- **Resource separation.** New `apps/web/src/features/users/` folder rather than extending `features/accounts/`. The `accounts` feature owns the auth flows; `users` owns the resource view of users. Matches "one feature folder per domain" — when a `User` detail page or invite-user form lands, it goes here.
+- **URL.** `GET /api/v1/users/` (top-level resource), backed by `apps/accounts/api/users_urls.py` (a sibling of the auth `urls.py` file). Two URL modules in the same Django app split by **resource** (auth flows vs. resource views) — clean separation without spawning a second Django app for what's still User-the-model.
+- **Permission gate.** New reusable `config.permissions.IsStaff` (subclass of `IsAuthenticated` adding `is_staff=True`). Returns **403** to non-staff, **401** to anonymous. Frontend SSR catches the 403 and renders an "Access required" panel.
+- **Pagination = offset.** `?page=N&page_size=25` (max 100). Deviates from the cursor default in `api-conventions.md`. Justification: this is an admin list of bounded size and `sql.md` explicitly OKs offset for "< 10K items" admin lists. Offset supports "jump to page 5" out of the box; cursor doesn't.
+- **Response shape.** `{ data: [...], page: { page, page_size, total } }`. Same envelope as the cursor shape in `api-conventions.md` but with `page`/`page_size`/`total` instead of `next_cursor`/`prev_cursor`. Documented as the offset variant.
+- **Default sort.** `-created_at` then `-id` (deterministic tie-break for same-instant rows). No sort UI in this PR.
+- **Inline table primitive.** `UsersList` is built directly in `features/users/components/UsersList/` with raw `<table>` + `<th scope>` + `<caption>` + relative-time cells with absolute `title`. **Not** promoted to a `shared/ui/DataTable/` yet — per the project-structure rule, "promote on second consumer". Promote when a second list ships.
+- **Skeleton + empty + error states designed**, per `data-display.md`. Empty state is theoretically unreachable (the staff user is always at least one row) but designed for completeness.
+- **Status badges pair colour with text.** Active / Inactive / Staff. No colour-only signalling — meets WCAG / `accessibility.md`.
+
+**Consequences:**
+- The `tenant_id` column on `User` is intentionally **not** in the list view. When the `Account` model lands and tenants matter, the column comes back, ideally with a tenant filter.
+- The `users` Django URL namespace and the `users` web feature folder share a name — consistent with the resource. The `accounts` Django app retains both auth URLs and the new `users` URL module.
+- The new `IsStaff` permission lives in `config/permissions.py` so other apps can reuse it without importing from `accounts`.
+
+**Alternatives considered:**
+- *Cursor pagination* — correct for large lists; overkill for a bounded admin table where "go to page 5" is the natural verb. Revisit if the user count ever grows past ~10K.
+- *Building a shared `DataTable` primitive now* — premature; we don't yet know the second table's shape. Keep it inline; promote on the second consumer.
+- *Putting the URL at `/api/v1/admin/users/`* — telegraphs staff-only but adds a fake resource segment. The 403 already makes the gate clear.
+- *Spawning a separate `users` Django app* — would just import the `User` model from `accounts`. Two URL modules in one app is simpler.
+
+**Revisit when:** A second list-style page ships (promote `DataTable` to `shared/ui`), the user count starts approaching the offset-pagination ceiling (~10K rows), or a tenant filter is needed once `Account` lands.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->
