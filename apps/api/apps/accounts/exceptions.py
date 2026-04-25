@@ -37,3 +37,15 @@ class InvalidResetToken(AuthError):
 
 class WrongCurrentPassword(AuthError):
     """Raised when ``change_password`` receives a wrong ``current_password``."""
+
+
+class MFAAlreadyEnrolled(AuthError):
+    """Raised when MFA setup is requested but the user already has a confirmed device."""
+
+
+class MFANotEnrolled(AuthError):
+    """Raised when an MFA-only operation is attempted without an enrolled device."""
+
+
+class InvalidMFACode(AuthError):
+    """Raised when a submitted MFA code (TOTP or recovery) does not validate."""

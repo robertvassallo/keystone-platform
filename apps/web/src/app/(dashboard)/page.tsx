@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { JSX } from "react";
 
 import { SignOutButton } from "@/features/accounts";
@@ -11,15 +12,43 @@ export default async function DashboardPage(): Promise<JSX.Element> {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <header className="mb-8 flex items-center justify-between">
+    <main className="mx-auto max-w-2xl space-y-8 px-6 py-12">
+      <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-fg">Dashboard</h1>
         <SignOutButton />
       </header>
+
       <p className="text-fg-muted">
         Signed in as{" "}
         <span className="font-medium text-fg">{me.email}</span>.
       </p>
+
+      <section
+        aria-labelledby="account-widget-title"
+        className="space-y-3 rounded-md border border-border-subtle bg-bg-surface p-4"
+      >
+        <h2 id="account-widget-title" className="text-sm font-semibold text-fg">
+          Account
+        </h2>
+        <ul className="space-y-1 text-sm">
+          <li>
+            <Link
+              href="/change-password"
+              className="text-accent hover:underline focus-visible:underline"
+            >
+              Change password
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/mfa"
+              className="text-accent hover:underline focus-visible:underline"
+            >
+              Two-factor authentication
+            </Link>
+          </li>
+        </ul>
+      </section>
     </main>
   );
 }

@@ -156,4 +156,38 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — Auth MFA enrolment (TOTP + recovery codes)
+
+**Status:** accepted
+
+**Context:** Third auth slice. Originally scoped as one big `auth-mfa` PR; split into two — this one ships **enrolment + management** without changing the sign-in flow. The `auth-mfa-enforce` PR adds the sign-in challenge step on top.
+
+**Decision:**
+- **TOTP only** via `django-otp` + its `otp_totp` plugin. WebAuthn / passkeys deferred.
+- **`MFARecoveryCode` table** — UUID v7 PK, FK to `User`, SHA-256 hex digest of the plaintext, `consumed_at` timestamp. Unique on `(user, code_hash)`. Index on `(user, consumed_at)` so "remaining codes" stays cheap.
+- **10 recovery codes**, 8 chars each, sampled from a 32-char alphabet that drops visually-ambiguous characters (no `0/O/1/I/L`). Generated with `secrets.choice`. Shown **once** at enrolment + on regenerate, **stored hashed**, single-use.
+- **No salting / KDF on recovery codes.** Codes are short-lived and per-account; SHA-256 is sufficient for the threat model. Documented as a deliberate deviation from "use a KDF" hygiene; revisit if recovery codes ever live longer than the account does.
+- **Disable + regenerate** require **password** confirmation, not a current OTP. The user who lost their authenticator can still recover; OTP would lock them out.
+- **Single `/mfa` page** that branches on enrollment status (Server Component fetches status; client component handles the multi-step flow). Linked from a small "Account" widget on the dashboard placeholder, alongside `/change-password`. Settings index is a deferred refactor.
+- **TOTP issuer label** `"Keystone"` so authenticator apps display "Keystone (you@example.com)".
+- **QR code** rendered via `qrcode[pil]` server-side; the resulting PNG ships as a base64 `data:image/png;base64,…` URL. The `secret` is also exposed in the response for manual entry when scanning fails.
+- **Sign-in flow is unchanged in this PR.** Enrolling adds devices but doesn't gate sign-in until the next slice (`auth-mfa-enforce`) wires the 202 + verify step.
+
+**Consequences:**
+- A migration is required (`accounts.0002_mfarecoverycode` + the bundled `otp_totp_*` migrations). Reversible.
+- New deps: `django-otp`, `qrcode[pil]` → pulls `pillow`. `pillow` is heavy (~6 MB) but standard for QR PNG rendering. Acceptable.
+- Frontend file naming convention: `MFAEnrolFlow` failed `unicorn/filename-case` (it expects `Mfa…` not `MFA…`). Renamed components to `MfaEnrolFlow`, `MfaManagementPanel`, `MfaRecoveryCodesDisplay`. Future PRs use the same convention for acronyms in component names.
+- mypy override widened: `django_otp.*` and `qrcode.*` added to `ignore_missing_imports`; `misc` added to the test-scope `disable_error_code` list (django-stubs flags many factory-generated assignments as misc).
+- Throttling: enrolment endpoints are `IsAuthenticated` and use the default `UserRateThrottle` (600/min/user). The `auth` scope (5/min/IP) only protects anonymous endpoints — extending it to authenticated MFA confirm would be over-tight.
+
+**Alternatives considered:**
+- *Bundle enrolment + sign-in challenge in one PR* — splitting halves the review surface; sign-in is on the hot path and isolating that change makes rollback trivial.
+- *Store recovery codes salted via Argon2 / `make_password`* — overkill for short-lived codes; SHA-256 + per-account search space (~10 × 32^8) is sufficient given DRF + IP throttling.
+- *Browser-side QR rendering* — pulling a QR JS lib into the bundle when we already need server-side support for manual-entry secret was redundant.
+- *`MFAChallenge` table for partial-auth state* — punted with the sign-in flow change to PR `auth-mfa-enforce`. This PR doesn't yet need session-based half-state.
+
+**Revisit when:** WebAuthn / passkeys lands, `auth-mfa-enforce` ships (then revisit recovery-code hashing if the threat model changes), or a settings index page is introduced.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->

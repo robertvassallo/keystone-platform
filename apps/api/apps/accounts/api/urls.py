@@ -7,6 +7,11 @@ from django.urls import URLPattern, URLResolver, path
 from apps.accounts.api.views import (
     ChangePasswordView,
     MeView,
+    MFADisableView,
+    MFARegenerateRecoveryCodesView,
+    MFASetupConfirmView,
+    MFASetupStartView,
+    MFAStatusView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     SignInView,
@@ -35,5 +40,18 @@ urlpatterns: list[URLPattern | URLResolver] = [
         "password/change/",
         ChangePasswordView.as_view(),
         name="password-change",
+    ),
+    path("mfa/status/", MFAStatusView.as_view(), name="mfa-status"),
+    path("mfa/setup/", MFASetupStartView.as_view(), name="mfa-setup-start"),
+    path(
+        "mfa/setup/confirm/",
+        MFASetupConfirmView.as_view(),
+        name="mfa-setup-confirm",
+    ),
+    path("mfa/disable/", MFADisableView.as_view(), name="mfa-disable"),
+    path(
+        "mfa/recovery-codes/regenerate/",
+        MFARegenerateRecoveryCodesView.as_view(),
+        name="mfa-recovery-codes-regenerate",
     ),
 ]

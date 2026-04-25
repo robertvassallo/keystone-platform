@@ -6,9 +6,11 @@ requires-python = ">=3.12"
 dependencies = [
     "django>=5.1,<6",
     "django-environ>=0.13.0",
+    "django-otp>=1.7.0",
     "djangorestframework>=3.17.1",
     "drf-spectacular>=0.29.0",
     "psycopg[binary]>=3.3.3",
+    "qrcode[pil]>=8.2",
     "structlog>=25.5.0",
     "uuid-utils>=0.14.1",
 ]
@@ -33,7 +35,13 @@ module = ["*.migrations.*"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["environ.*", "factory.*", "uuid_utils.*"]
+module = [
+    "environ.*",
+    "factory.*",
+    "uuid_utils.*",
+    "django_otp.*",
+    "qrcode.*",
+]
 ignore_missing_imports = true
 
 # factory_boy stubs and django-stubs interactions in tests are noisy without
@@ -42,7 +50,7 @@ ignore_missing_imports = true
 module = ["*.tests.*"]
 disallow_untyped_calls = false
 disallow_untyped_decorators = false
-disable_error_code = ["arg-type", "assignment", "attr-defined"]
+disable_error_code = ["arg-type", "assignment", "attr-defined", "misc"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
