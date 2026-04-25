@@ -355,4 +355,45 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — CI: GitHub Actions for lint / typecheck / tests
+
+**Status:** accepted
+
+**Context:** Through the first nine PRs, every merge gate has been "I ran the sweep locally and it's green." That's fine for a solo project but not durable — a hot-fix PR rebased badly, a missed file, an env-specific lockfile drift would all slip through. Wiring the local sweep into a GitHub Actions workflow turns "green locally" into a portable, reproducible signal and unblocks future branch protection.
+
+**Decision:**
+- **Single workflow file** (`.github/workflows/ci.yml`), two parallel jobs (`web` + `api`). One file is enough at this size; split when a third pipeline (deploy / release / e2e) lands.
+- **Triggers:** `pull_request` (any branch) + `push` to `main` only. Feature branches get CI on PR, `main` gets a re-run after the squash-merge — the post-merge run is the one that gates `main` health.
+- **Concurrency** keyed on `github.ref` with `cancel-in-progress` on **non-main only**. Pushing twice to a PR cancels the first run (saves CI minutes); pushes to `main` always finish so the merge-commit run is never truncated.
+- **No matrix.** One Node version (22), one Python version (3.12), one OS (`ubuntu-24.04`). Matches the pinned versions in `docs/01_architecture/stack.md`. Cross-version testing adds noise; CI's job is "do this exact stack still work", not compatibility scouting.
+- **No path-filtering.** Every PR runs every check. Bootstrap-era simplicity. When a typical run takes long enough to feel painful (>5 min wall clock), we'll add `paths:` filters to skip the api job on docs-only PRs etc. — but we're far from that.
+- **Permissions = `contents: read` at the workflow level.** Least-privilege; jobs that need more (e.g. PR-comment bots, deploy actions) elevate inside the job. We have none today.
+- **Action version pinning at the major** (`@v4`). SHA-pinning is the supply-chain-hardening posture and the right move when the project has external contributors or compliance constraints; for now, `@v4` keeps Dependabot updates lightweight. Re-pin to SHAs when threat model changes.
+- **Postgres via service container** (`postgres:16-alpine`), not Docker Compose. GitHub Actions services start before the job's first step, expose ports on `localhost`, and have built-in healthchecks — much less ceremony than running `docker compose up` inside the job. CI gets its own DB (`keystone_ci`) so future workflow concurrency on the same runner doesn't collide.
+- **`uv sync` from repo root**, not `--project apps/api`. The `pyproject.toml` workspace config picks up `apps/api`; `uv sync` resolves the whole workspace lockfile in one pass.
+- **Migration step before pytest**, not just `pytest`. `pytest-django` would create + migrate its own test DB anyway, but running `manage.py migrate --noinput` against the empty `keystone_ci` DB first is a real signal — it caught the local "wipe DB before re-migrating" caveat from PR #8 and would catch a broken three-step migration tree before the test phase did.
+- **`pnpm install --frozen-lockfile`** so a missed `pnpm-lock.yaml` update fails CI loudly instead of silently mutating the lockfile.
+- **`postinstall` builds tokens** automatically, so the workflow doesn't need an explicit `pnpm run build:tokens` step. Same path as a fresh local clone.
+- **Build job included** (`next build` under `NODE_ENV=production`). Type errors and Server Component / client-bundle boundary violations sometimes only surface at build time; `tsc --noEmit` doesn't catch the latter.
+- **`timeout-minutes: 10`** on each job. Caps a hung step at 10 min instead of the default 6h. Generous compared to current run time (~3 min web, ~4 min api locally) but not absurd; tighten if a job ever idles near it.
+
+**Consequences:**
+- Branch protection (require `web` + `api` checks) is a one-time GitHub repo-settings action, deferred — visible in this PR's checks, but not enforced until configured.
+- Stylelint and SQLFluff aren't wired into the project yet, so the workflow doesn't run them. The PR template lists them aspirationally; the CI workflow follows actual tooling, not the template.
+- The GitHub-hosted `ubuntu-24.04` runner has Node, Python, and Docker pre-installed. We still install them via the official setup actions to control the version pin — slightly redundant on this runner, but the workflow stays portable to runners without pre-warmed toolchains.
+- `uv` cache is enabled via `setup-uv@v4`; first CI run on a new branch is a cold cache (~30s install), subsequent runs warm.
+- Concurrency = `cancel-in-progress: true` on PRs means a chatty rebase loop won't queue 5 runs deep. Worth it.
+
+**Alternatives considered:**
+- *Multiple workflow files (`ci-web.yml`, `ci-api.yml`)* — would let GitHub treat them as independent required checks for branch protection. Same effect achieved with two jobs in one file (each job is selectable as a required check). Less file sprawl.
+- *Run `pytest` with `--no-migrations`* — faster, but loses the "do migrations apply cleanly on a fresh DB" check that the explicit `migrate` step provides. The cost (~1s) isn't worth optimising.
+- *Use Docker Compose inside CI* (`docker compose -f infra/docker/compose.dev.yml up -d`) — symmetric with local dev but slower start and less idiomatic; service containers are GitHub Actions' first-class primitive.
+- *Build tokens in an explicit step* — redundant given `postinstall`. If the postinstall step ever stops being mandatory, add an explicit `pnpm run build:tokens` step and document the change.
+- *Pin actions to commit SHAs* — strictly safer (no surprise behavior change from a re-tagged `@v4`). Defer until external contributors or compliance enter scope; meanwhile the major-tag posture matches every other repo of this size.
+- *Add CodeQL / dependency-review* — separate workflow file, separate concern. When security tooling lands, it gets its own file.
+
+**Revisit when:** Branch protection is enforced (turn each job into a required check), a third pipeline (deploy, release, e2e) is needed (split workflows), CI run time grows past ~5 min wall clock (add path filters and / or cache more aggressively), an external contributor opens a PR (re-pin actions to SHAs and consider `pull_request_target` policy), or stylelint / SQLFluff get wired into the project (add steps).
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->
