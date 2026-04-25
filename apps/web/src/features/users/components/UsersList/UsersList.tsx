@@ -6,14 +6,19 @@ import { cn } from "@/shared/lib/cn";
 import type { UserListItem } from "../../types";
 
 import { UsersListEmpty } from "./UsersListEmpty";
+import { UsersListNoMatches } from "./UsersListNoMatches";
 
 interface UsersListProps {
   readonly users: readonly UserListItem[];
+  readonly isFiltered?: boolean;
 }
 
-export function UsersList({ users }: UsersListProps): JSX.Element {
+export function UsersList({
+  users,
+  isFiltered = false,
+}: UsersListProps): JSX.Element {
   if (users.length === 0) {
-    return <UsersListEmpty />;
+    return isFiltered ? <UsersListNoMatches /> : <UsersListEmpty />;
   }
 
   return (

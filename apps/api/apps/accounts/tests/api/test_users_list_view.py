@@ -91,3 +91,84 @@ def test_returns_empty_data_array_for_page_beyond_data() -> None:
     assert response.status_code == 200
     assert body["data"] == []
     assert body["page"]["total"] == 1
+
+
+@pytest.mark.django_db
+def test_q_query_param_filters_by_email_substring() -> None:
+    tenant = AccountFactory()
+    staff = UserFactory(email="staff@example.com", is_staff=True, tenant=tenant)
+    UserFactory(email="alice@example.com", tenant=tenant)
+    UserFactory(email="bob@other.com", tenant=tenant)
+    client = APIClient()
+    client.force_login(staff)
+
+    response = client.get(URL, {"q": "alice"})
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["page"]["total"] == 1
+    assert [row["email"] for row in body["data"]] == ["alice@example.com"]
+
+
+@pytest.mark.django_db
+def test_status_query_param_filters_to_staff_only() -> None:
+    tenant = AccountFactory()
+    staff = UserFactory(email="admin@example.com", is_staff=True, tenant=tenant)
+    UserFactory.create_batch(2, is_staff=False, tenant=tenant)
+    client = APIClient()
+    client.force_login(staff)
+
+    response = client.get(URL, {"status": "staff"})
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["page"]["total"] == 1
+    assert [row["email"] for row in body["data"]] == ["admin@example.com"]
+
+
+@pytest.mark.django_db
+def test_status_query_param_filters_to_inactive_only() -> None:
+    tenant = AccountFactory()
+    staff = UserFactory(is_staff=True, is_active=True, tenant=tenant)
+    UserFactory(email="dormant@example.com", is_active=False, tenant=tenant)
+    client = APIClient()
+    client.force_login(staff)
+
+    response = client.get(URL, {"status": "inactive"})
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["page"]["total"] == 1
+    assert [row["email"] for row in body["data"]] == ["dormant@example.com"]
+
+
+@pytest.mark.django_db
+def test_unknown_status_value_is_ignored() -> None:
+    tenant = AccountFactory()
+    staff = UserFactory(is_staff=True, tenant=tenant)
+    UserFactory.create_batch(2, tenant=tenant)
+    client = APIClient()
+    client.force_login(staff)
+
+    response = client.get(URL, {"status": "garbage"})
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["page"]["total"] == 3
+
+
+@pytest.mark.django_db
+def test_q_and_status_compose() -> None:
+    tenant = AccountFactory()
+    staff = UserFactory(email="admin@acme.com", is_staff=True, tenant=tenant)
+    UserFactory(email="alice@acme.com", is_staff=False, tenant=tenant)
+    UserFactory(email="other@acme.com", is_staff=True, tenant=tenant)
+    client = APIClient()
+    client.force_login(staff)
+
+    response = client.get(URL, {"q": "admin", "status": "staff"})
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["page"]["total"] == 1
+    assert [row["email"] for row in body["data"]] == ["admin@acme.com"]

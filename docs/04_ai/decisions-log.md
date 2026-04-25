@@ -321,4 +321,38 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — Users-list search + status filter
+
+**Status:** accepted
+
+**Context:** Extension of the `/users` admin list. Staff need to find a specific user by email and slice the table by activity / role state without scrolling. Filter state must be shareable / bookmarkable.
+
+**Decision:**
+- **Filter contract.** `GET /api/v1/users/?q=<str>&status=<active|inactive|staff>`. Both optional, both compose with AND. `q` is case-insensitive substring match against `email` (`email__icontains`), trimmed and capped to 200 chars. `status` is a server-side enum (`UserStatus` StrEnum); unknown values are silently dropped to `None` rather than 400'd — keeps URL-shared links resilient and matches the lenient-on-input posture of the rest of the API.
+- **Status semantics, single dropdown.** `active = is_active=True`, `inactive = is_active=False`, `staff = is_staff=True`. Categories overlap (a staff user is also active) but the dropdown picks one at a time; combinatorial multi-select is deferred until a second consumer asks. Keeps the URL flat (one param, one value) and avoids the "is_active=true&is_active=false" two-checkbox problem.
+- **No trigram index, no `pg_trgm`.** Plain `ILIKE` is fine for the bounded admin-list shape (tenant-scoped, sub-10k rows). Adding `pg_trgm` + a GIN index has migration + extension cost without a hot-path justification yet. Revisit if a tenant's user count starts giving slow queries.
+- **No `q` debounce.** The filter form uses an explicit "Apply" submit (or Enter); the status select submits on `change`. Debouncing every keystroke would create URL-history noise (every step of typing pushes a route) and a filter chip flicker. Submit-on-intent is calmer and lets the back button do the obvious thing.
+- **URL is the single source of truth.** `UsersListFilters` is a leaf client component using `useRouter()` + `usePathname()` to push the next URL on submit / change. The page is a Server Component reading `searchParams.{q,status}`. No client-side filter state lives outside the URL.
+- **Pagination preserves filters.** `UsersListPagination` accepts a `filters` prop and merges `q` / `status` into `?page=N&q=…&status=…`. **Filter changes drop `page`** — the URL is rebuilt from scratch on every filter submit, so the user lands on page 1 of the new result set. Standard "filter mutation resets pagination" UX.
+- **Two empty states.** `UsersListEmpty` ("No users yet") stays for the unfiltered zero case; new sibling `UsersListNoMatches` renders when `isFiltered && rows.length === 0`. The no-matches state links to `/users` (clean URL) as the "Clear filters" action — the filter bar's "Clear all" button does the same thing client-side.
+- **Filter chips render below the form.** Each active filter is an `inline-flex` chip with an X-button. Per-chip clear preserves the other filter; "Clear all" wipes both. Each chip's clear button has a specific `aria-label` (`"Clear search filter alice"`, `"Clear status filter Staff"`) so screen readers announce *which* filter is being removed.
+- **Backend doesn't 400 on unknown `status`.** Same posture as ignoring an out-of-range `page` — clamp / drop and continue. The selector + view both handle this; the test suite explicitly covers `status=garbage` returning the unfiltered total.
+
+**Consequences:**
+- The frontend `User` type (`@/features/users`) gains a `UserStatus` union and a `UsersListFilters` interface; the public barrel re-exports `UsersListFiltersValue` to dodge a name clash with the React component.
+- `list_users` and `listUsersServer` now both take optional `q` + `status` kwargs; existing call sites that don't pass them continue to work unchanged.
+- The "Apply" button is a real submit `<button>` so Enter inside the search field also triggers it — no synthetic Enter handler.
+- The form is `role="search"` with an aria-labelled section heading; the chips region uses readable labels rather than `aria-live` (filter changes are direct page navigations, not live updates, so a region announcement would be redundant with the URL change).
+
+**Alternatives considered:**
+- *Multi-value status (`?status=active,staff`)* — flexible, but the UX (multi-select dropdown / checkbox group) carries weight that one ask doesn't justify yet. Single-value covers the 90% admin task.
+- *Debounced live search* — feels modern but creates URL-history pollution and double-fetches on most keystrokes. Submit-on-Enter has no downside for an admin list and keeps the back button sane.
+- *`q` matching `email + first_name + last_name`* — fields don't exist on the model yet; revisit when profile fields land.
+- *Search by UUID id* — admin paste-a-uuid would be handy, but `id ILIKE` doesn't work on UUIDs and adding a separate field path complicates the contract. Punt until asked.
+- *Returning 400 on unknown `status`* — stricter, but a stale shared link with a renamed value would 400 unhelpfully. Lenient drop matches the rest of the API.
+
+**Revisit when:** A second list-style page ships (promote the filter bar to a `shared/ui` `FilterBar` primitive at the same time as `DataTable`), `pg_trgm` becomes worth the migration cost, multi-value status is requested, or column-sort UI lands (the URL-state pattern extends naturally — `?sort=…&q=…&status=…`).
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->
