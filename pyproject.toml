@@ -4,6 +4,9 @@ version = "0.0.0"
 description = "Keystone — full-stack starter for web and dashboard projects (Django + Next.js + Postgres)."
 requires-python = ">=3.12"
 
+[tool.uv.workspace]
+members = ["apps/api"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
@@ -48,34 +51,6 @@ quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
 
-[tool.mypy]
-python_version = "3.12"
-strict = true
-warn_unused_ignores = true
-warn_redundant_casts = true
-disallow_untyped_defs = true
-disallow_any_generics = true
-no_implicit_optional = true
-plugins = ["mypy_django_plugin.main"]
-
-[tool.django-stubs]
-django_settings_module = "config.settings.dev"
-
-[[tool.mypy.overrides]]
-module = ["*.migrations.*"]
-ignore_errors = true
-
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings.test"
-python_files = ["test_*.py", "*_test.py"]
-addopts = "-ra --strict-markers --tb=short"
-testpaths = ["tests"]
-
-[tool.coverage.run]
-branch = true
-omit = ["*/migrations/*", "*/tests/*", "manage.py"]
-
-[tool.coverage.report]
-fail_under = 80
-show_missing = true
-skip_covered = true
+# Django/pytest/mypy/coverage config lives in apps/api/pyproject.toml so that it
+# scopes to the API project. The root pyproject keeps only repo-wide Python lint
+# (Ruff) and the uv workspace declaration.

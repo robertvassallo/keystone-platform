@@ -1,0 +1,5 @@
+@import "@keystone/tokens/dist/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
