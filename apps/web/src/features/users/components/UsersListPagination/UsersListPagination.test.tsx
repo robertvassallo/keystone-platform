@@ -44,4 +44,22 @@ describe("UsersListPagination", () => {
 
     expect(container.firstChild).toBeNull();
   });
+
+  it("preserves filter params in the page links", () => {
+    render(
+      <UsersListPagination
+        page={2}
+        pageSize={25}
+        total={142}
+        filters={{ q: "alice", status: "staff" }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /previous page$/i }),
+    ).toHaveAttribute("href", "?page=1&q=alice&status=staff");
+    expect(
+      screen.getByRole("link", { name: /next page$/i }),
+    ).toHaveAttribute("href", "?page=3&q=alice&status=staff");
+  });
 });

@@ -3,18 +3,32 @@ import type { JSX } from "react";
 
 import { cn } from "@/shared/lib/cn";
 
+import type { UsersListFilters as UsersListFiltersValue } from "../../types";
+
 interface UsersListPaginationProps {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
+  readonly filters?: UsersListFiltersValue;
 }
 
 const FIRST_PAGE = 1;
+
+function buildHref(targetPage: number, filters?: UsersListFiltersValue): string {
+  const params = new URLSearchParams();
+  params.set("page", String(targetPage));
+  if (filters !== undefined) {
+    if (filters.q !== null && filters.q !== "") params.set("q", filters.q);
+    if (filters.status !== null) params.set("status", filters.status);
+  }
+  return `?${params.toString()}`;
+}
 
 export function UsersListPagination({
   page,
   pageSize,
   total,
+  filters,
 }: UsersListPaginationProps): JSX.Element | null {
   if (total === 0) return null;
 
@@ -35,13 +49,13 @@ export function UsersListPagination({
       </p>
       <div className="flex items-center gap-2">
         <PageLink
-          href={hasPrev ? `?page=${String(page - 1)}` : null}
+          href={hasPrev ? buildHref(page - 1, filters) : null}
           label="Previous page"
         >
           Previous
         </PageLink>
         <PageLink
-          href={hasNext ? `?page=${String(page + 1)}` : null}
+          href={hasNext ? buildHref(page + 1, filters) : null}
           label="Next page"
         >
           Next

@@ -2,11 +2,13 @@
 
 import { ApiError, apiFetch, readProblem } from "@/shared/lib/api-client";
 
-import type { UsersListResponse } from "../types";
+import type { UsersListResponse, UserStatus } from "../types";
 
 export interface ListUsersInput {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly q?: string | null;
+  readonly status?: UserStatus | null;
 }
 
 function buildQuery(input: ListUsersInput): string {
@@ -14,6 +16,12 @@ function buildQuery(input: ListUsersInput): string {
   if (input.page !== undefined) params.set("page", String(input.page));
   if (input.pageSize !== undefined) {
     params.set("page_size", String(input.pageSize));
+  }
+  if (input.q !== undefined && input.q !== null && input.q !== "") {
+    params.set("q", input.q);
+  }
+  if (input.status !== undefined && input.status !== null) {
+    params.set("status", input.status);
   }
   const query = params.toString();
   return query ? `?${query}` : "";

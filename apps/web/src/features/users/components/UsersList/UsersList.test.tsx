@@ -60,6 +60,17 @@ describe("UsersList", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
+  it("renders the no-matches state when filtered to zero rows", () => {
+    render(<UsersList users={[]} isFiltered />);
+
+    expect(
+      screen.getByRole("heading", { name: /no matches/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /clear filters/i }),
+    ).toHaveAttribute("href", "/users");
+  });
+
   it("shows a placeholder for users who have never signed in", () => {
     render(<UsersList users={[ROW]} />);
 

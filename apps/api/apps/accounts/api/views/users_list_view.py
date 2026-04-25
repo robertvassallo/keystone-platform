@@ -16,6 +16,7 @@ from apps.accounts.selectors import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
     MIN_PAGE,
+    UserStatus,
     list_users,
 )
 
@@ -26,6 +27,24 @@ def _parse_int(raw: str, default: int) -> int:
         return int(raw)
     except (TypeError, ValueError):
         return default
+
+
+def _parse_status(raw: str | None) -> UserStatus | None:
+    """Map a query-string status value to ``UserStatus``; unknowns become ``None``."""
+    if not raw:
+        return None
+    try:
+        return UserStatus(raw)
+    except ValueError:
+        return None
+
+
+def _parse_query(raw: str | None) -> str | None:
+    """Strip a query-string search value; empty/whitespace becomes ``None``."""
+    if raw is None:
+        return None
+    trimmed = raw.strip()
+    return trimmed or None
 
 
 class UsersListView(APIView):
@@ -54,6 +73,8 @@ class UsersListView(APIView):
                 MAX_PAGE_SIZE,
             ),
         )
+        q = _parse_query(request.query_params.get("q"))
+        status_filter = _parse_status(request.query_params.get("status"))
 
         user = request.user
         assert isinstance(user, User)
@@ -61,6 +82,8 @@ class UsersListView(APIView):
             tenant_id=user.tenant_id,
             page=page,
             page_size=page_size,
+            q=q,
+            status=status_filter,
         )
 
         return Response(

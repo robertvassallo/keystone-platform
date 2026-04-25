@@ -2,6 +2,15 @@
 
 import type { TenantSummary } from "@/features/accounts";
 
+export const USER_STATUS_VALUES = ["active", "inactive", "staff"] as const;
+
+export type UserStatus = (typeof USER_STATUS_VALUES)[number];
+
+export interface UsersListFilters {
+  readonly q: string | null;
+  readonly status: UserStatus | null;
+}
+
 export interface UserListItem {
   readonly id: string;
   readonly email: string;
