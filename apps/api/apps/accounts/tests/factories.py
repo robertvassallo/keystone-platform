@@ -23,10 +23,10 @@ class UserFactory(DjangoModelFactory[User]):
         model = User
         skip_postgeneration_save = True
 
-    email = factory.Sequence(lambda n: f"user{n}@example.com")  # type: ignore[attr-defined]
+    email = factory.Sequence(lambda n: f"user{n}@example.com")
     is_active = True
 
-    @factory.post_generation  # type: ignore[attr-defined]
+    @factory.post_generation
     def password(
         self: User,
         create: bool,

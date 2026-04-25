@@ -14,7 +14,7 @@ URL = "/api/v1/auth/me/"
 def test_me_returns_200_with_serialized_user_when_authenticated() -> None:
     user = UserFactory(email="me@example.com")
     client = APIClient()
-    client.force_login(user)  # type: ignore[arg-type]
+    client.force_login(user)
 
     response = client.get(URL)
 

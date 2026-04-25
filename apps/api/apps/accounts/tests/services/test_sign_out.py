@@ -26,7 +26,7 @@ def test_sign_out_clears_authenticated_session() -> None:
     user = UserFactory(password=DEFAULT_TEST_PASSWORD)
     rf = RequestFactory()
     request = _request_with_session(rf)
-    login(request, user, backend="django.contrib.auth.backends.ModelBackend")  # type: ignore[arg-type]
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     assert "_auth_user_id" in request.session
 
     sign_out(request=request)

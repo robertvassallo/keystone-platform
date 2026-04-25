@@ -5,7 +5,10 @@
  * into the client bundle.
  */
 
+export { changePassword } from "./change-password";
+export { confirmPasswordReset } from "./confirm-password-reset";
 export { getMe } from "./me";
+export { requestPasswordReset } from "./request-password-reset";
 export { signIn } from "./sign-in";
 export { signOut } from "./sign-out";
 export { signUp } from "./sign-up";

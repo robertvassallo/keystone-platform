@@ -42,6 +42,7 @@ ignore_missing_imports = true
 module = ["*.tests.*"]
 disallow_untyped_calls = false
 disallow_untyped_decorators = false
+disable_error_code = ["arg-type", "assignment", "attr-defined"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
@@ -64,6 +65,7 @@ dev = [
     "django-stubs>=6.0.3",
     "djangorestframework-stubs>=3.16.9",
     "factory-boy>=3.3.3",
+    "freezegun>=1.5.5",
     "mypy>=1.20.2",
     "pytest>=9.0.3",
     "pytest-django>=4.12.0",

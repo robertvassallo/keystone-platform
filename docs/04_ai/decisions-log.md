@@ -124,4 +124,36 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — Auth password-reset + change-password
+
+**Status:** accepted
+
+**Context:** Second slice of the auth feature, building on `auth-core`. Need a forgot-password flow, a tokenised reset link from email, and a change-password page for signed-in users — all without leaking which addresses are registered.
+
+**Decision:**
+- **Token strategy:** Django's built-in `default_token_generator` (HMAC over `pk + last_login + password_hash + timestamp`). No new DB schema. Single-use is automatic — once the password changes, the embedded hash invalidates every outstanding token.
+- **Token expiry:** `PASSWORD_RESET_TIMEOUT = 3600` (1 hour). Deviates from Django's 3-day default; aligned with NIST short-lived recovery tokens.
+- **Account-non-enumeration:** the request endpoint always returns **204** regardless of whether the email is known. Inactive users are silently skipped too. Forgot-password tests assert that no email is sent for unknown / inactive addresses.
+- **Reset URL shape:** `{FRONTEND_URL}/reset-password?uid=<base64>&token=<token>` — `uidb64` + `token` separately, matching Django's stock pattern. `FRONTEND_URL` is env-driven, default `http://localhost:3000`.
+- **Email format:** plain-text + minimal HTML alternative (no branded templates). Subject + bodies live in `apps/api/apps/accounts/templates/accounts/emails/`. Dev backend stays `console`.
+- **`change_password` session policy:** call `update_session_auth_hash(request, user)` after the save so the **current session stays alive**; every other session for the same user is invalidated implicitly because Django ties session validity to the password hash. No "log out everywhere" toggle today — it's the default.
+- **Status-code mapping:** `422 invalid_reset_token` for bad/expired tokens, `422 wrong_current_password` for change-password mismatch (both domain-rule failures, not validation), `400` for weak passwords. Keeps the API contract from `api-conventions.md`.
+- **Client schema validation:** `changePasswordSchema` rejects `currentPassword === newPassword` at the form layer to avoid a server round-trip for the obvious case.
+
+**Consequences:**
+- No DB migration. Tokens live nowhere — you can't list active reset tokens, only consume them.
+- A user requesting a reset from two different devices invalidates the first email when they use the second (the password hash changes). Acceptable — only the most recent reset wins.
+- Tests use `freezegun` to time-travel for token expiry assertions. Added as a dev dep.
+- factory_boy + django-stubs interactions stay noisy; we widened the test mypy override with `disable_error_code = ["arg-type", "assignment", "attr-defined"]` and removed the per-line `# type: ignore` clutter.
+
+**Alternatives considered:**
+- *Custom `PasswordResetToken` table* — gives revocation + multi-device fan-out but adds a migration + a hot table for what's currently fine without one. Revisit if we need device-attached resets or admin revocation.
+- *Magic-link sign-in* — rolled out as part of password-reset would broaden the scope to a third feature; not worth coupling.
+- *Force re-sign-in after change-password* — simpler but worse UX. The current device just changed the password; making the user type it again immediately is friction without security benefit.
+- *Constant-time response for unknown emails* — we kept the simpler "early return" path. A timing attacker could in principle distinguish. Acceptable risk for now; revisit if the API is exposed to a high-volume adversary.
+
+**Revisit when:** A second password-reset path appears (magic link, social), an explicit "log out everywhere" toggle is requested, or branded transactional email enters scope.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->
