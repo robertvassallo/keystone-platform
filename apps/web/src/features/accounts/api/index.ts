@@ -1,12 +1,14 @@
 /** Public API surface for the accounts feature — client-safe.
  *
- * Server-only modules (``./me-server``, ``./mfa-status-server``) live in
- * their own files and must not be re-exported here, otherwise Next.js
- * will pull ``next/headers`` into the client bundle.
+ * Server-only modules (``./me-server``, ``./mfa-status-server``,
+ * ``./get-account-server``) live in their own files and must not be
+ * re-exported here, otherwise Next.js will pull ``next/headers`` into
+ * the client bundle.
  */
 
 export { changePassword } from "./change-password";
 export { confirmPasswordReset } from "./confirm-password-reset";
+export { getAccount } from "./get-account";
 export { getMe } from "./me";
 export {
   disableMfa,

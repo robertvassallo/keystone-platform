@@ -1,11 +1,25 @@
 /** Public types for the accounts feature. */
 
+export interface TenantSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+}
+
+export interface Account {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly owner_email: string | null;
+  readonly created_at: string;
+}
+
 export interface User {
   readonly id: string;
   readonly email: string;
   readonly is_active: boolean;
   readonly is_staff: boolean;
-  readonly tenant_id: string | null;
+  readonly tenant: TenantSummary | null;
   readonly created_at: string;
 }
 
@@ -19,3 +33,7 @@ export interface MfaSetupPayload {
   readonly provisioning_uri: string;
   readonly qr_data_url: string;
 }
+
+export type AccountResult =
+  | { readonly kind: "ok"; readonly account: Account }
+  | { readonly kind: "forbidden" };

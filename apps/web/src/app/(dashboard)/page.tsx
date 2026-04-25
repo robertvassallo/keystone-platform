@@ -13,9 +13,16 @@ export default async function DashboardPage(): Promise<JSX.Element> {
 
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-6 py-12">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-fg">Dashboard</h1>
-        <SignOutButton />
+      <header className="space-y-2">
+        {me.tenant !== null && (
+          <p className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            {me.tenant.name}
+          </p>
+        )}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-fg">Dashboard</h1>
+          <SignOutButton />
+        </div>
       </header>
 
       <p className="text-fg-muted">
@@ -31,6 +38,14 @@ export default async function DashboardPage(): Promise<JSX.Element> {
           Account
         </h2>
         <ul className="space-y-1 text-sm">
+          <li>
+            <Link
+              href="/settings/account"
+              className="text-accent hover:underline focus-visible:underline"
+            >
+              Tenant
+            </Link>
+          </li>
           <li>
             <Link
               href="/change-password"

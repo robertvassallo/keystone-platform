@@ -11,7 +11,11 @@ const BASE: UserDetail = {
   is_active: true,
   is_staff: false,
   is_superuser: false,
-  tenant_id: null,
+  tenant: {
+    id: "01HXYZ-tenant-uuid",
+    name: "Acme",
+    slug: "acme",
+  },
   created_at: "2026-04-25T10:00:00Z",
   updated_at: "2026-04-25T11:00:00Z",
   last_login: null,
@@ -27,10 +31,10 @@ describe("UserDetailCard", () => {
     expect(screen.getByText("01HXYZ-id-uuid")).toBeInTheDocument();
   });
 
-  it('shows "—" when tenant_id is null and "Never" when last_login is null', () => {
+  it("renders the tenant name and shows 'Never' when last_login is null", () => {
     render(<UserDetailCard user={BASE} />);
 
-    expect(screen.getByLabelText(/no tenant assigned/i)).toBeInTheDocument();
+    expect(screen.getByText("Acme")).toBeInTheDocument();
     expect(screen.getByLabelText(/never signed in/i)).toBeInTheDocument();
   });
 

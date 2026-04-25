@@ -1,5 +1,6 @@
 """Public serializer surface for the accounts API."""
 
+from .account_serializer import AccountSerializer, TenantSummarySerializer
 from .change_password_serializer import ChangePasswordSerializer
 from .mfa_serializers import (
     MFAPasswordConfirmSerializer,
@@ -18,6 +19,7 @@ from .user_list_item_serializer import UserListItemSerializer
 from .user_serializer import UserSerializer
 
 __all__ = [
+    "AccountSerializer",
     "ChangePasswordSerializer",
     "MFAPasswordConfirmSerializer",
     "MFARecoveryCodesResponseSerializer",
@@ -29,6 +31,7 @@ __all__ = [
     "PasswordResetRequestSerializer",
     "SignInSerializer",
     "SignUpSerializer",
+    "TenantSummarySerializer",
     "UserDetailSerializer",
     "UserListItemSerializer",
     "UserSerializer",

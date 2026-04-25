@@ -37,15 +37,7 @@ export function UserDetailCard({ user }: UserDetailCardProps): JSX.Element {
           </code>
         </DetailRow>
         <DetailRow label="Tenant">
-          {user.tenant_id ? (
-            <code className="break-all font-mono text-xs text-fg-muted">
-              {user.tenant_id}
-            </code>
-          ) : (
-            <span className="text-fg-muted" aria-label="No tenant assigned">
-              —
-            </span>
-          )}
+          <span className="text-fg">{user.tenant.name}</span>
         </DetailRow>
         <DetailRow label="Created">
           <AbsoluteDate iso={user.created_at} />

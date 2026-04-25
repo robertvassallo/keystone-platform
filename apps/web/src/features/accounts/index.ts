@@ -1,5 +1,6 @@
 /** Public surface of the accounts feature. */
 
+export { AccountCard } from "./components/AccountCard";
 export { ChangePasswordForm } from "./components/ChangePasswordForm";
 export { ForgotPasswordForm } from "./components/ForgotPasswordForm";
 export { MfaChallengeForm } from "./components/MfaChallengeForm";
@@ -20,4 +21,11 @@ export type {
   SignInInput,
   SignUpInput,
 } from "./lib/schemas";
-export type { MfaSetupPayload, MfaStatus, User } from "./types";
+export type {
+  Account,
+  AccountResult,
+  MfaSetupPayload,
+  MfaStatus,
+  TenantSummary,
+  User,
+} from "./types";

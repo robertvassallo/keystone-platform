@@ -1,5 +1,7 @@
 /** Public types for the users feature. */
 
+import type { TenantSummary } from "@/features/accounts";
+
 export interface UserListItem {
   readonly id: string;
   readonly email: string;
@@ -11,7 +13,7 @@ export interface UserListItem {
 
 export interface UserDetail extends UserListItem {
   readonly is_superuser: boolean;
-  readonly tenant_id: string | null;
+  readonly tenant: TenantSummary;
   readonly updated_at: string;
 }
 

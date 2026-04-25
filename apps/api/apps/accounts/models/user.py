@@ -42,14 +42,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text="Grants access to the Django admin.",
     )
 
-    tenant_id = models.UUIDField(
-        null=True,
-        blank=True,
-        db_index=True,
-        help_text=(
-            "Tenant scope — nullable today; required once the Account model "
-            "lands and existing rows have been backfilled."
-        ),
+    tenant = models.ForeignKey(
+        "accounts.Account",
+        on_delete=models.PROTECT,
+        related_name="users",
+        db_column="tenant_id",
+        help_text="The tenant this user belongs to. Required.",
     )
 
     created_at = models.DateTimeField(default=timezone.now, editable=False)

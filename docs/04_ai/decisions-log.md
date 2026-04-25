@@ -282,4 +282,43 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — Tenancy: Account model + sign-up auto-create + tenant-scoped queries
+
+**Status:** accepted
+
+**Context:** The biggest architectural slice yet. Picks up the long-deferred multi-tenancy decision recorded in the bootstrap (shared schema with `tenant_id`) and finally puts an `Account` model behind the column. Existing users get one Account each via a backfill; from this PR on, sign-up is one transaction that creates both.
+
+**Decision:**
+- **`Account` model** in `apps/accounts/models/account.py` — UUID v7 PK, `name`, `slug`, audit cols, soft-delete cols. **No explicit `owner` FK** in this PR; with one-User-per-Account today, the owner is implicit (the single user whose `tenant` FK points at this account). When invite / membership flows ship, an explicit owner field lands alongside the membership table.
+- **One-to-many User → Account, modelled as one-to-one in practice.** `User.tenant = ForeignKey(Account, on_delete=PROTECT, related_name="users", db_column="tenant_id")` — column stays `tenant_id`, Python attribute is now `tenant`. This is the same shape as a true 1:N relationship; we just only ever create one user per account in this PR. Membership becomes a real 1:N when invites ship.
+- **Three migrations to flip `User.tenant_id` to `NOT NULL` safely**:
+  - `accounts.0003_account` — schema only: `CreateModel(Account)` + `set_accounts_updated_at` trigger. Reverses cleanly.
+  - `accounts.0004_backfill_user_tenants` — data only: `RunPython` creates one `Account` per existing `User` (name = `<email-local>'s account`, slug = `<email-local>` with collision suffix) and sets `tenant_id`. Reverses by clearing `tenant_id` and dropping every Account.
+  - `accounts.0005_user_tenant_fk_not_null` — schema: `SeparateDatabaseAndState`. The state op renames the field (`tenant_id` → `tenant`) and changes its type to ForeignKey. The DB op is a `RunSQL` that adds `NOT NULL` and `FOREIGN KEY ... DEFERRABLE INITIALLY DEFERRED`. The column name stays `tenant_id` end-to-end.
+- **Sign-up auto-creates the tenant.** `services/sign_up.py` wraps both inserts in a single transaction. Slug derived from the email's local part (`re.sub(r"[^a-z0-9]+", "-", local).strip("-")`); collisions get `-2`, `-3`, … suffixed. Invite-only flows are deferred.
+- **Tenant resolution = application-layer filtering.** `list_users` and `get_user_by_id` now require `tenant_id` and add `.filter(tenant_id=...)`. **No Postgres RLS in this PR.** Defense-in-depth via RLS is a follow-up — adding middleware that calls `set_config('app.current_tenant', …)` plus per-table policies plus error handling for unset tenant is its own PR-sized concern. Documented in the May-9 retired routine context.
+- **`/users` and `/users/<id>` are now tenant-scoped.** Backwards-incompatible behavior change vs. the previous PR — staff in tenant A no longer sees users in tenant B. Cross-tenant detail lookups return **404** (privacy default, matches the soft-deleted-user posture).
+- **`UserSerializer`** (used by `/me`, `/sign-in`, `/sign-up`) gains nested `tenant: { id, name, slug } | null` instead of `tenant_id`. **`UserDetailSerializer`** also nests tenant. **`UserListItemSerializer`** keeps the plain `tenant_id` UUID — list rows are within the staff user's own tenant, the name would be redundant on every row. The frontend `User` type updates to match.
+- **New `GET /api/v1/account/`** endpoint — returns the signed-in user's tenant via `AccountSerializer` (id, name, slug, computed `owner_email`, created_at). New URL module `apps/accounts/api/account_urls.py`.
+- **New `/settings/account`** page — Server Component, renders `AccountCard` (semantic `<dl>`/`<dt>`/`<dd>`). Linked from the dashboard Account widget for all signed-in users.
+- **Dashboard placeholder gains a small uppercase tenant line** above the "Dashboard" h1, derived from `me.tenant.name`.
+- **Factory cascade.** `UserFactory` now defaults to `tenant = factory.SubFactory(AccountFactory)`. Tests creating multiple users in one tenant explicitly pass `tenant=existing_account`. Tests for selectors / views that previously created N users in one global namespace got the explicit shared-tenant treatment.
+
+**Consequences:**
+- The dev DB needs a wipe (`docker compose down -v`) before this PR runs cleanly on existing local data — the data migration backfills, and a stale state can break things. Same caveat as the bootstrap's `AUTH_USER_MODEL` swap.
+- Migration round-trip (forward + reverse) verified on a fresh DB.
+- `tenant_id` on `User` is the canonical column; the FK column matches via `db_column`. Code reads / writes use `user.tenant` (the Account instance) and `user.tenant_id` (the UUID) interchangeably per Django's FK conventions.
+- The May-9 scheduled remote agent (`trig_01UiMD8Tw4aRPsVckaiQciXY`) is now obsolete — it was queued to do this exact migration. Disabled via `RemoteTrigger` after this PR merges.
+
+**Alternatives considered:**
+- *DB-per-tenant.* Strong isolation but heavy ops overhead (per-tenant migrations, backups, connection pools). Originally requested in the bootstrap but switched to shared-schema before any code shipped.
+- *Postgres RLS now.* Defense-in-depth is the right long-term move, but adds middleware + policies + error handling — its own PR. Application-layer filtering is sufficient for the threat model today.
+- *Explicit `owner` FK on `Account` from day one.* Avoided to dodge the chicken-and-egg of `User.tenant` requiring an Account that requires an `owner` User. With the implicit-owner approach via the reverse relation, the create order is unambiguous. Add explicit ownership when membership ships.
+- *`/api/v1/me/tenant/` instead of `/api/v1/account/`.* Either works; the resource-style URL aligns with `api-conventions.md`'s "plural lower-snake-case noun" guidance better than nesting under `/me`.
+- *Squashed single migration.* Three steps make the intent obvious and let `migrate accounts 0003` (schema only) be a useful state if anyone wants to inspect mid-flight.
+
+**Revisit when:** Invite / membership flows ship (replace auto-create + add explicit `owner`), Postgres RLS enters scope (lift filtering from application to DB), per-tenant subdomains or path prefixes are needed, a "tenant admin" role distinct from `is_superuser` is introduced, or the user count per tenant grows large enough that explicit `select_related("tenant")` becomes load-bearing.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->
