@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  web:
+    name: web — lint, typecheck, test, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (eslint)
+        run: pnpm --filter @keystone/web lint
+
+      - name: Typecheck (tsc --noEmit)
+        run: pnpm --filter @keystone/web exec tsc --noEmit
+
+      - name: Test (vitest)
+        run: pnpm --filter @keystone/web test
+
+      - name: Build (next build)
+        run: pnpm --filter @keystone/web build
+        env:
+          NODE_ENV: production
+
+  api:
+    name: api — ruff, mypy, migrate, pytest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: keystone
+          POSTGRES_PASSWORD: keystone
+          POSTGRES_DB: keystone_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U keystone -d keystone_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://keystone:keystone@localhost:5432/keystone_ci
+      DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      FRONTEND_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Setup Python 3.12
+        run: uv python install 3.12
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Lint (ruff)
+        run: uv run --project apps/api ruff check apps/api packages
+
+      - name: Typecheck (mypy)
+        run: uv run --directory apps/api mypy .
+
+      - name: Django check
+        run: uv run --directory apps/api python manage.py check
+
+      - name: Migrate (verifies migrations apply on a fresh DB)
+        run: uv run --directory apps/api python manage.py migrate --noinput
+
+      - name: Test (pytest)
+        run: uv run --directory apps/api pytest
