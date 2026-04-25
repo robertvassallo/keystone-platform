@@ -6,13 +6,18 @@ from rest_framework import serializers
 
 from apps.accounts.models import User
 
+from .account_serializer import TenantSummarySerializer
+
 
 class UserDetailSerializer(serializers.ModelSerializer[User]):
     """Full read shape for a single user.
 
-    Richer than ``UserListItemSerializer`` — includes ``is_superuser``
-    and ``updated_at`` since the detail surface isn't column-constrained.
+    Richer than ``UserListItemSerializer`` — includes ``is_superuser``,
+    ``updated_at``, and a nested tenant summary since the detail surface
+    isn't column-constrained.
     """
+
+    tenant = TenantSummarySerializer(read_only=True)
 
     class Meta:
         model = User
@@ -22,7 +27,7 @@ class UserDetailSerializer(serializers.ModelSerializer[User]):
             "is_active",
             "is_staff",
             "is_superuser",
-            "tenant_id",
+            "tenant",
             "created_at",
             "updated_at",
             "last_login",

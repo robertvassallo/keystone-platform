@@ -1,5 +1,6 @@
 """Public view surface for the accounts API."""
 
+from .account_view import AccountView
 from .change_password_view import ChangePasswordView
 from .me_view import MeView
 from .mfa_disable_view import MFADisableView
@@ -17,6 +18,7 @@ from .user_detail_view import UserDetailView
 from .users_list_view import UsersListView
 
 __all__ = [
+    "AccountView",
     "ChangePasswordView",
     "MFADisableView",
     "MFARegenerateRecoveryCodesView",

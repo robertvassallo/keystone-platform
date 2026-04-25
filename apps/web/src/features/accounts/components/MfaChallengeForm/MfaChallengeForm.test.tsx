@@ -17,7 +17,7 @@ const FAKE_USER = {
   email: "user@example.com",
   is_active: true,
   is_staff: false,
-  tenant_id: null,
+  tenant: null,
   created_at: "2026-04-25T00:00:00Z",
 };
 

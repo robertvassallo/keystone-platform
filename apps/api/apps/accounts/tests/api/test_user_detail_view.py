@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 from rest_framework.test import APIClient
 
-from apps.accounts.tests.factories import UserFactory
+from apps.accounts.tests.factories import AccountFactory, UserFactory
 
 
 def _detail_url(user_id: object) -> str:
@@ -15,9 +15,10 @@ def _detail_url(user_id: object) -> str:
 
 
 @pytest.mark.django_db
-def test_returns_200_with_full_payload_for_staff_user() -> None:
-    staff = UserFactory(is_staff=True)
-    target = UserFactory(email="target@example.com")
+def test_returns_200_with_full_payload_for_staff_user_in_same_tenant() -> None:
+    tenant = AccountFactory()
+    staff = UserFactory(is_staff=True, tenant=tenant)
+    target = UserFactory(email="target@example.com", tenant=tenant)
     client = APIClient()
     client.force_login(staff)
 
@@ -26,8 +27,8 @@ def test_returns_200_with_full_payload_for_staff_user() -> None:
 
     assert response.status_code == 200
     assert body["email"] == "target@example.com"
-    # Detail shape includes the richer fields not in the list shape.
-    assert {"is_superuser", "updated_at", "tenant_id"} <= set(body.keys())
+    assert {"is_superuser", "updated_at", "tenant"} <= set(body.keys())
+    assert body["tenant"]["id"] == str(tenant.pk)
 
 
 @pytest.mark.django_db
@@ -63,13 +64,26 @@ def test_returns_404_for_unknown_id() -> None:
 
 
 @pytest.mark.django_db
-def test_returns_404_for_soft_deleted_user() -> None:
-    staff = UserFactory(is_staff=True)
-    deleted = UserFactory()
+def test_returns_404_for_soft_deleted_user_in_same_tenant() -> None:
+    tenant = AccountFactory()
+    staff = UserFactory(is_staff=True, tenant=tenant)
+    deleted = UserFactory(tenant=tenant)
     deleted.soft_delete()
     client = APIClient()
     client.force_login(staff)
 
     response = client.get(_detail_url(deleted.pk))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_returns_404_when_user_is_in_a_different_tenant() -> None:
+    staff = UserFactory(is_staff=True)
+    target_in_other_tenant = UserFactory()
+    client = APIClient()
+    client.force_login(staff)
+
+    response = client.get(_detail_url(target_in_other_tenant.pk))
 
     assert response.status_code == 404

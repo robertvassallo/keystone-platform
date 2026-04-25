@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.api.serializers import UserListItemSerializer
+from apps.accounts.models import User
 from apps.accounts.selectors import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
@@ -54,7 +55,13 @@ class UsersListView(APIView):
             ),
         )
 
-        rows, total = list_users(page=page, page_size=page_size)
+        user = request.user
+        assert isinstance(user, User)
+        rows, total = list_users(
+            tenant_id=user.tenant_id,
+            page=page,
+            page_size=page_size,
+        )
 
         return Response(
             {

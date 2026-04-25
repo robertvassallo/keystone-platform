@@ -11,4 +11,8 @@ urlpatterns: list[URLPattern | URLResolver] = [
         "users/",
         include("apps.accounts.api.users_urls", namespace="users"),
     ),
+    path(
+        "account/",
+        include("apps.accounts.api.account_urls", namespace="account"),
+    ),
 ]

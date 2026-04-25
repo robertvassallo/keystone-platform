@@ -36,3 +36,20 @@ def test_sign_up_raises_weak_password_when_too_short() -> None:
         sign_up(email="short@example.com", password="abc12345")
 
     assert excinfo.value.messages
+
+
+@pytest.mark.django_db
+def test_sign_up_creates_a_tenant_for_the_new_user() -> None:
+    user = sign_up(email="alice@example.com", password=STRONG_PASSWORD)
+
+    assert user.tenant is not None
+    assert user.tenant.slug == "alice"
+    assert user.tenant.name.startswith("alice")
+
+
+@pytest.mark.django_db
+def test_sign_up_appends_a_collision_suffix_when_slug_taken() -> None:
+    sign_up(email="bob@example.com", password=STRONG_PASSWORD)
+    second = sign_up(email="bob@otherco.com", password=STRONG_PASSWORD)
+
+    assert second.tenant.slug == "bob-2"

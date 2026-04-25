@@ -6,9 +6,13 @@ from rest_framework import serializers
 
 from apps.accounts.models import User
 
+from .account_serializer import TenantSummarySerializer
+
 
 class UserSerializer(serializers.ModelSerializer[User]):
     """Read-only projection used by ``/auth/me/`` and auth response bodies."""
+
+    tenant = TenantSummarySerializer(read_only=True)
 
     class Meta:
         model = User
@@ -17,7 +21,7 @@ class UserSerializer(serializers.ModelSerializer[User]):
             "email",
             "is_active",
             "is_staff",
-            "tenant_id",
+            "tenant",
             "created_at",
         )
         read_only_fields = fields

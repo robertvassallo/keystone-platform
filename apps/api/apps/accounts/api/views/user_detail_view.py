@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.api.serializers import UserDetailSerializer
+from apps.accounts.models import User
 from apps.accounts.selectors import get_user_by_id
 
 
@@ -33,7 +34,9 @@ class UserDetailView(APIView):
         operation_id="users_detail",
     )
     def get(self, request: Request, id: UUID) -> Response:  # noqa: A002
-        user = get_user_by_id(user_id=id)
-        if user is None:
+        viewer = request.user
+        assert isinstance(viewer, User)
+        target = get_user_by_id(user_id=id, tenant_id=viewer.tenant_id)
+        if target is None:
             raise NotFound("User not found.")
-        return Response(UserDetailSerializer(user).data, status=status.HTTP_200_OK)
+        return Response(UserDetailSerializer(target).data, status=status.HTTP_200_OK)
