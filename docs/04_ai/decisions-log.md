@@ -255,4 +255,31 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — Users detail page
+
+**Status:** accepted
+
+**Context:** First detail surface on a resource. Click an email in the `/users` table → land on a read-only profile page. Validates the layered selectors/views pattern on a single resource and the `<dl>` definition-list semantics for label/value pairs.
+
+**Decision:**
+- **Detail serializer is richer than the list serializer.** `UserDetailSerializer` adds `is_superuser` and `updated_at` on top of `UserListItemSerializer`. The list endpoint stays slim (small over the wire); the detail endpoint returns the full picture without column constraints.
+- **URL pattern uses `<uuid:id>`** at the Django routing layer (`/api/v1/users/<uuid:id>/`). Garbage ids are rejected with a routing-level 404 before the view runs.
+- **Soft-deleted users → 404.** The default manager already filters `deleted_at IS NOT NULL`; the detail view doesn't override it. Deleted user looks identical to "never existed" — privacy-leaning default. Distinct "this user has been removed" state is a future call when admin recovery flows ship.
+- **Server-side fetch returns a discriminated union** `{ kind: "ok"|"forbidden"|"not_found" }` so the page can branch cleanly without try/catch — same shape as the list page's forbidden branch, plus `not_found`.
+- **Email cell becomes a `<Link>`** in the existing `UsersList` table. Per `data-display.md` "a clear linked column (usually first)".
+- **`UserDetailCard`** uses `<dl>` + `<dt>` + `<dd>` for label/value pairs (the right semantic per `semantic-html.md`). Inline in `features/users/components/UserDetailCard/`. **Not** promoted to a `shared/ui/DefinitionList` primitive yet — same "promote on second consumer" rule as the table.
+
+**Consequences:**
+- Two separate serializers for the same model is intentional; renaming or merging them would force the list to ship more bytes than it needs.
+- `tenant_id` shows on the detail page even though it's still nullable today. When the `Account` model lands, the field becomes a link to the tenant.
+
+**Alternatives considered:**
+- *One unified `UserSerializer`* — simpler but ships `is_superuser` + `updated_at` to the list view that doesn't display them. Rejected.
+- *Distinct "removed" state for soft-deleted users* — useful for staff investigating a complaint, but not yet justified. Will revisit if admin recovery / restoration flows ship.
+- *Modal detail instead of a route* — page is shareable + bookmarkable + browser-back-navigable; that's worth the URL.
+
+**Revisit when:** A second `<dl>`-style detail page ships (promote `DefinitionList` to `shared/ui`), per-user MFA / sessions / audit panels need to render on this page, or admin "restore deleted user" flows enter scope.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->

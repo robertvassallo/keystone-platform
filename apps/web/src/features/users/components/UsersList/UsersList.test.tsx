@@ -65,4 +65,11 @@ describe("UsersList", () => {
 
     expect(screen.getByLabelText(/never signed in/i)).toBeInTheDocument();
   });
+
+  it("links the email cell to the user's detail page", () => {
+    render(<UsersList users={[ROW]} />);
+
+    const link = screen.getByRole("link", { name: "alice@example.com" });
+    expect(link).toHaveAttribute("href", "/users/01HXYZ");
+  });
 });
