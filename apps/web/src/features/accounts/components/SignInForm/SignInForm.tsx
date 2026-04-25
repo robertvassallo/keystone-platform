@@ -11,6 +11,7 @@ import { cn } from "@/shared/lib/cn";
 
 import { signIn } from "../../api";
 import { signInSchema, type SignInInput } from "../../lib/schemas";
+import { MfaChallengeForm } from "../MfaChallengeForm";
 
 interface SignInFormProps {
   readonly nextPath?: string;
@@ -18,6 +19,7 @@ interface SignInFormProps {
 
 export function SignInForm({ nextPath = "/" }: SignInFormProps): JSX.Element {
   const router = useRouter();
+  const [stage, setStage] = useState<"idle" | "mfa_challenge">("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
@@ -28,12 +30,20 @@ export function SignInForm({ nextPath = "/" }: SignInFormProps): JSX.Element {
     defaultValues: { email: "", password: "", rememberMe: false },
   });
 
+  const completeSignIn = (): void => {
+    router.push(nextPath);
+    router.refresh();
+  };
+
   const onSubmit = async (input: SignInInput): Promise<void> => {
     setSubmitError(null);
     try {
-      await signIn(input);
-      router.push(nextPath);
-      router.refresh();
+      const result = await signIn(input);
+      if (result.kind === "mfa_required") {
+        setStage("mfa_challenge");
+        return;
+      }
+      completeSignIn();
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -42,6 +52,20 @@ export function SignInForm({ nextPath = "/" }: SignInFormProps): JSX.Element {
       setSubmitError(message);
     }
   };
+
+  if (stage === "mfa_challenge") {
+    return (
+      <MfaChallengeForm
+        onAuthenticated={completeSignIn}
+        onChallengeExpired={() => {
+          setStage("idle");
+          setSubmitError(
+            "Your sign-in session expired. Please sign in again.",
+          );
+        }}
+      />
+    );
+  }
 
   return (
     <form

@@ -7,6 +7,7 @@ from .mfa_regenerate_codes_view import MFARegenerateRecoveryCodesView
 from .mfa_setup_confirm_view import MFASetupConfirmView
 from .mfa_setup_start_view import MFASetupStartView
 from .mfa_status_view import MFAStatusView
+from .mfa_verify_view import MFAVerifyView
 from .password_reset_confirm_view import PasswordResetConfirmView
 from .password_reset_request_view import PasswordResetRequestView
 from .sign_in_view import SignInView
@@ -20,6 +21,7 @@ __all__ = [
     "MFASetupConfirmView",
     "MFASetupStartView",
     "MFAStatusView",
+    "MFAVerifyView",
     "MeView",
     "PasswordResetConfirmView",
     "PasswordResetRequestView",

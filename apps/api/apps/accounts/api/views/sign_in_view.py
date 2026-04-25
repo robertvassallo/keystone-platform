@@ -34,6 +34,7 @@ class SignInView(APIView):
         request=SignInSerializer,
         responses={
             status.HTTP_200_OK: UserSerializer,
+            status.HTTP_202_ACCEPTED: None,
             status.HTTP_400_BAD_REQUEST: None,
             status.HTTP_401_UNAUTHORIZED: None,
         },
@@ -52,5 +53,11 @@ class SignInView(APIView):
             )
         except InvalidCredentials as exc:
             raise InvalidCredentialsError() from exc
+
+        if user is None:
+            return Response(
+                {"mfa_required": True},
+                status=status.HTTP_202_ACCEPTED,
+            )
 
         return Response(UserSerializer(user).data, status=status.HTTP_200_OK)

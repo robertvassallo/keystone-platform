@@ -8,6 +8,7 @@ from .mfa_serializers import (
     MFASetupResponseSerializer,
     MFAStatusResponseSerializer,
 )
+from .mfa_verify_serializer import MFAVerifySerializer
 from .password_reset_confirm_serializer import PasswordResetConfirmSerializer
 from .password_reset_request_serializer import PasswordResetRequestSerializer
 from .sign_in_serializer import SignInSerializer
@@ -21,6 +22,7 @@ __all__ = [
     "MFASetupConfirmSerializer",
     "MFASetupResponseSerializer",
     "MFAStatusResponseSerializer",
+    "MFAVerifySerializer",
     "PasswordResetConfirmSerializer",
     "PasswordResetRequestSerializer",
     "SignInSerializer",

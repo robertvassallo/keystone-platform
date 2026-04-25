@@ -40,12 +40,15 @@ describe("SignInForm", () => {
   it("submits and calls signIn with the form values", async () => {
     const user = userEvent.setup();
     vi.mocked(signIn).mockResolvedValueOnce({
-      id: "1",
-      email: "user@example.com",
-      is_active: true,
-      is_staff: false,
-      tenant_id: null,
-      created_at: "2026-04-25T00:00:00Z",
+      kind: "signed_in",
+      user: {
+        id: "1",
+        email: "user@example.com",
+        is_active: true,
+        is_staff: false,
+        tenant_id: null,
+        created_at: "2026-04-25T00:00:00Z",
+      },
     });
 
     render(<SignInForm nextPath="/dashboard" />);
@@ -109,5 +112,23 @@ describe("SignInForm", () => {
       await screen.findByText(/email must include @/i),
     ).toBeInTheDocument();
     expect(signIn).not.toHaveBeenCalled();
+  });
+
+  it("transitions to the MFA challenge view when the API returns mfa_required", async () => {
+    const user = userEvent.setup();
+    vi.mocked(signIn).mockResolvedValueOnce({ kind: "mfa_required" });
+
+    render(<SignInForm />);
+    await user.type(screen.getByLabelText(/email/i), "user@example.com");
+    await user.type(
+      screen.getByLabelText(/^password$/i),
+      "VeryStrongPassword-7531",
+    );
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(
+      await screen.findByRole("heading", { name: /verify it’s you/i }),
+    ).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 });

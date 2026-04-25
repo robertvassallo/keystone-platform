@@ -2,6 +2,7 @@
 
 export { ChangePasswordForm } from "./components/ChangePasswordForm";
 export { ForgotPasswordForm } from "./components/ForgotPasswordForm";
+export { MfaChallengeForm } from "./components/MfaChallengeForm";
 export { MfaEnrolFlow } from "./components/MfaEnrolFlow";
 export { MfaManagementPanel } from "./components/MfaManagementPanel";
 export { ResetPasswordForm } from "./components/ResetPasswordForm";
@@ -11,6 +12,8 @@ export { SignUpForm } from "./components/SignUpForm";
 export type {
   ChangePasswordInput,
   ForgotPasswordInput,
+  MfaChallengeRecoveryInput,
+  MfaChallengeTotpInput,
   MfaPasswordConfirmInput,
   MfaSetupConfirmInput,
   ResetPasswordInput,

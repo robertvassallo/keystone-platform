@@ -103,3 +103,25 @@ export const mfaPasswordConfirmSchema = z.object({
 });
 
 export type MfaPasswordConfirmInput = z.infer<typeof mfaPasswordConfirmSchema>;
+
+export const mfaChallengeTotpSchema = z.object({
+  code: z
+    .string()
+    .regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator app."),
+});
+
+export type MfaChallengeTotpInput = z.infer<typeof mfaChallengeTotpSchema>;
+
+export const mfaChallengeRecoverySchema = z.object({
+  code: z
+    .string()
+    .regex(
+      /^[A-Za-z0-9]{8}$/,
+      "Recovery codes are 8 letters and digits.",
+    )
+    .transform((value) => value.toUpperCase()),
+});
+
+export type MfaChallengeRecoveryInput = z.infer<
+  typeof mfaChallengeRecoverySchema
+>;

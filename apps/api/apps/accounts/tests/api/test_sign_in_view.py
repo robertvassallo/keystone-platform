@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import pytest
 from django.conf import settings
+from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework.test import APIClient
 
+from apps.accounts.services.mfa_verify_challenge import CHALLENGE_SESSION_KEY
 from apps.accounts.tests.factories import DEFAULT_TEST_PASSWORD, UserFactory
 
 URL = "/api/v1/auth/sign-in/"
@@ -54,6 +56,24 @@ def test_sign_in_returns_401_for_unknown_email_without_leaking_existence() -> No
 
     assert response.status_code == 401
     assert response.json()["type"].endswith("invalid_credentials")
+
+
+@pytest.mark.django_db
+def test_sign_in_returns_202_when_user_has_mfa_enrolled() -> None:
+    user = UserFactory(email="mfa@example.com")
+    TOTPDevice.objects.create(user=user, name="default", confirmed=True)
+    client = APIClient()
+
+    response = client.post(
+        URL,
+        {"email": user.email, "password": DEFAULT_TEST_PASSWORD},
+        format="json",
+    )
+
+    assert response.status_code == 202
+    assert response.json() == {"mfa_required": True}
+    # The session was issued so the verify endpoint can find the partial ticket.
+    assert client.session.get(CHALLENGE_SESSION_KEY) is not None
 
 
 @pytest.mark.django_db

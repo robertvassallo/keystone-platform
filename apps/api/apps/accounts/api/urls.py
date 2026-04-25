@@ -12,6 +12,7 @@ from apps.accounts.api.views import (
     MFASetupConfirmView,
     MFASetupStartView,
     MFAStatusView,
+    MFAVerifyView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     SignInView,
@@ -42,6 +43,7 @@ urlpatterns: list[URLPattern | URLResolver] = [
         name="password-change",
     ),
     path("mfa/status/", MFAStatusView.as_view(), name="mfa-status"),
+    path("mfa/verify/", MFAVerifyView.as_view(), name="mfa-verify"),
     path("mfa/setup/", MFASetupStartView.as_view(), name="mfa-setup-start"),
     path(
         "mfa/setup/confirm/",

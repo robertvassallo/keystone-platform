@@ -190,4 +190,37 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — Auth MFA enforcement (sign-in challenge)
+
+**Status:** accepted
+
+**Context:** Closes the loop on the MFA work started in `auth-mfa-enrol`. With this PR an enrolled user signs in with email + password, gets a `202 {mfa_required: true}` instead of a session, and finishes the flow by submitting a TOTP code (or a recovery code). Users without MFA are unaffected.
+
+**Decision:**
+- **Partial-auth ticket lives in the Django session** under key `mfa_challenge` — `{user_id, remember_me, expires_at}`. **5-minute TTL**, single-use on success, persists on wrong-code so the user can retry without retyping their password.
+- **TTL = 5 minutes.** Long enough for the realistic flow (password → grab phone → open authenticator → enter code), short enough to limit a leaked-ticket attack window. NIST SP 800-63B sits in this range.
+- **Single `/api/v1/auth/mfa/verify/` endpoint** that accepts a single `code` field. Server **auto-detects** TOTP (6 digits) vs recovery (anything else); picking the wrong format just yields `invalid_mfa_code`.
+- **No DB schema change** — partial state is session-only, recovery-code consumption uses the existing table.
+- **Sign-in returns 202 (`{mfa_required: true}`) when challenge required, 200 otherwise.** The frontend's `signIn` helper now returns a discriminated union (`{kind: "signed_in", user} | {kind: "mfa_required"}`) so the form picks the branch.
+- **`SignInForm` is a small state machine** (`idle → mfa_challenge`). No new route — `/sign-in` URL stays. The challenge view is a sibling component (`MfaChallengeForm`) the form swaps in.
+- **`MfaChallengeForm` toggles between TOTP and recovery modes** by re-mounting via `key`, so each mode has its own validation schema (TOTP: `^\d{6}$`, recovery: `^[A-Za-z0-9]{8}$` upper-cased on submit).
+- **`update_session_auth_hash` is not needed** here — `django_login` itself rotates the session for the verified user.
+- **`OTP_TOTP_THROTTLE_FACTOR = 0`** in test settings only — django-otp's per-device 1-second backoff after a failed verify is the right behaviour for users but makes deterministic wrong-then-correct tests painful.
+
+**Consequences:**
+- A user who closes the browser mid-challenge loses the session (browser-close session semantics) and must sign in again — acceptable.
+- The 5-min TTL means a slow user can be punished if they walked away. Mitigated by the "Use a recovery code instead" toggle and the fact that re-signing in is one form away.
+- Auto-detection of TOTP vs recovery is convenient but means a 6-digit recovery code (impossible with our 8-char alphabet but worth flagging) would be misclassified. Today the code shapes don't overlap.
+- No `update_session_auth_hash` on the verify path — fine because there's no prior session to preserve, but worth being explicit so a future refactor doesn't flip this.
+
+**Alternatives considered:**
+- *Explicit `is_recovery_code` flag in the API* — UX-equivalent, more bytes per call, more branches in the client. Skipped.
+- *Dedicated `MFAChallenge` DB table* — would let admins revoke active challenges, but a 5-min session-only ticket is sufficient and adds no migration / hot table. Revisit if multi-device challenge state becomes a thing.
+- *One-attempt ticket (consume on any verify call)* — more secure but punishes mistypes hard. The 5/min auth-scope throttle already caps brute-force.
+- *Separate `/sign-in/verify` route* — clean URL, but the state-machine refactor in `SignInForm` keeps the URL stable and avoids a router round-trip. Better UX.
+
+**Revisit when:** WebAuthn / passkeys lands, "trust this device for 30 days" enters scope, step-up MFA on sensitive actions (`change_password`, `disable_mfa`) is needed, or `django-axes` ships and we want to coordinate lockouts.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->
