@@ -47,6 +47,16 @@ export default async function DashboardPage(): Promise<JSX.Element> {
               Two-factor authentication
             </Link>
           </li>
+          {me.is_staff && (
+            <li>
+              <Link
+                href="/users"
+                className="text-accent hover:underline focus-visible:underline"
+              >
+                Users
+              </Link>
+            </li>
+          )}
         </ul>
       </section>
     </main>

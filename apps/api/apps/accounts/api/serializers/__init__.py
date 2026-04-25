@@ -13,6 +13,7 @@ from .password_reset_confirm_serializer import PasswordResetConfirmSerializer
 from .password_reset_request_serializer import PasswordResetRequestSerializer
 from .sign_in_serializer import SignInSerializer
 from .sign_up_serializer import SignUpSerializer
+from .user_list_item_serializer import UserListItemSerializer
 from .user_serializer import UserSerializer
 
 __all__ = [
@@ -27,5 +28,6 @@ __all__ = [
     "PasswordResetRequestSerializer",
     "SignInSerializer",
     "SignUpSerializer",
+    "UserListItemSerializer",
     "UserSerializer",
 ]
