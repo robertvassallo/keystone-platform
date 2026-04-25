@@ -1,0 +1,36 @@
+{
+  "name": "keystone-platform",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Keystone — full-stack platform (Next.js + Django + Postgres).",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev:web": "pnpm --filter @keystone/web dev",
+    "dev:api": "uv run --directory apps/api python manage.py runserver 0.0.0.0:8000",
+    "build:tokens": "node packages/tokens/build.mjs",
+    "build:web": "pnpm --filter @keystone/web build",
+    "build": "pnpm run build:tokens && pnpm run build:web",
+    "lint": "pnpm -r run lint && pnpm run lint:py",
+    "lint:py": "uv run --project apps/api ruff check apps/api packages",
+    "typecheck": "pnpm -r run typecheck && pnpm run typecheck:py",
+    "typecheck:py": "uv run --directory apps/api mypy .",
+    "test": "pnpm run test:py",
+    "test:py": "uv run --directory apps/api pytest",
+    "check:django": "uv run --directory apps/api python manage.py check",
+    "postinstall": "node packages/tokens/build.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-unicorn": "^56.0.1",
+    "typescript-eslint": "^8.18.2"
+  }
+}

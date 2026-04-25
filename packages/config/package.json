@@ -1,0 +1,25 @@
+{
+  "name": "@keystone/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared build configuration — TypeScript base, Tailwind preset, ESLint preset.",
+  "type": "module",
+  "exports": {
+    "./tailwind.preset": {
+      "types": "./tailwind.preset.ts",
+      "default": "./tailwind.preset.ts"
+    },
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./eslint.preset": {
+      "default": "./eslint.preset.js"
+    }
+  },
+  "files": [
+    "tailwind.preset.ts",
+    "tsconfig.base.json",
+    "eslint.preset.js"
+  ],
+  "peerDependencies": {
+    "tailwindcss": "^3"
+  }
+}
