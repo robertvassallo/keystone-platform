@@ -49,3 +49,7 @@ class MFANotEnrolled(AuthError):
 
 class InvalidMFACode(AuthError):
     """Raised when a submitted MFA code (TOTP or recovery) does not validate."""
+
+
+class MFAChallengeExpired(AuthError):
+    """Raised when no partial-auth ticket is present, or it's older than the TTL."""

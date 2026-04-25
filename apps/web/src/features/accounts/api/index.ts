@@ -14,7 +14,8 @@ export {
 } from "./mfa-disable";
 export { confirmMfaSetup, startMfaSetup } from "./mfa-setup";
 export { getMfaStatus } from "./mfa-status";
+export { verifyMfaChallenge } from "./mfa-verify";
 export { requestPasswordReset } from "./request-password-reset";
-export { signIn } from "./sign-in";
+export { signIn, type SignInResult } from "./sign-in";
 export { signOut } from "./sign-out";
 export { signUp } from "./sign-up";

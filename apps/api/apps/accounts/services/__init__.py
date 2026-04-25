@@ -7,6 +7,7 @@ from .mfa_disable import disable_mfa
 from .mfa_get_status import MFAStatus, get_mfa_status
 from .mfa_regenerate_recovery_codes import regenerate_recovery_codes
 from .mfa_start_setup import MFASetupPayload, start_mfa_setup
+from .mfa_verify_challenge import verify_mfa_challenge
 from .request_password_reset import request_password_reset
 from .sign_in import sign_in
 from .sign_out import sign_out
@@ -26,4 +27,5 @@ __all__ = [
     "sign_out",
     "sign_up",
     "start_mfa_setup",
+    "verify_mfa_challenge",
 ]

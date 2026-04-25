@@ -63,3 +63,11 @@ class InvalidMFACodeError(APIException):
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     default_detail = "Invalid authentication code."
     default_code = "invalid_mfa_code"
+
+
+class MFAChallengeExpiredError(APIException):
+    """422 — no partial-auth ticket is present, or it's past its TTL."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "Your sign-in session expired. Sign in again."
+    default_code = "mfa_challenge_expired"
