@@ -29,3 +29,11 @@ class InvalidCredentials(AuthError):
     email or inactive account — surfacing that would leak whether an
     account exists.
     """
+
+
+class InvalidResetToken(AuthError):
+    """Raised when a password-reset token is missing, malformed, expired, or already used."""
+
+
+class WrongCurrentPassword(AuthError):
+    """Raised when ``change_password`` receives a wrong ``current_password``."""

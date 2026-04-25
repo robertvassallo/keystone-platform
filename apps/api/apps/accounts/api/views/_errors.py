@@ -23,3 +23,19 @@ class InvalidCredentialsError(AuthenticationFailed):
 
     default_detail = "Email or password is incorrect."
     default_code = "invalid_credentials"
+
+
+class InvalidResetTokenError(APIException):
+    """422 — password-reset token is missing, malformed, expired, or used."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "This password-reset link is invalid or has expired."
+    default_code = "invalid_reset_token"
+
+
+class WrongCurrentPasswordError(APIException):
+    """422 — change-password supplied an incorrect current password."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "Current password is incorrect."
+    default_code = "wrong_current_password"

@@ -115,16 +115,24 @@ export function SignInForm({ nextPath = "/" }: SignInFormProps): JSX.Element {
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          id="remember-me"
-          type="checkbox"
-          className="h-4 w-4 rounded border-border text-accent focus-visible:ring-2 focus-visible:ring-accent"
-          {...register("rememberMe")}
-        />
-        <label htmlFor="remember-me" className="text-sm text-fg">
-          Remember me for 30 days
-        </label>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <input
+            id="remember-me"
+            type="checkbox"
+            className="h-4 w-4 rounded border-border text-accent focus-visible:ring-2 focus-visible:ring-accent"
+            {...register("rememberMe")}
+          />
+          <label htmlFor="remember-me" className="text-sm text-fg">
+            Remember me for 30 days
+          </label>
+        </div>
+        <Link
+          href="/forgot-password"
+          className="text-sm text-accent hover:underline focus-visible:underline"
+        >
+          Forgot password?
+        </Link>
       </div>
 
       <button

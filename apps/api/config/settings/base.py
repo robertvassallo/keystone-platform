@@ -94,6 +94,19 @@ CSRF_TRUSTED_ORIGINS = env.list(
 # Used by the sign-in service when "Remember me" is checked.
 REMEMBER_ME_DURATION = 60 * 60 * 24 * 30  # 30 days
 
+# Password reset ------------------------------------------------------------
+# 1h expiry per NIST guidance (Django default is 3 days). The frontend URL
+# is the public base for the reset link emailed to the user.
+PASSWORD_RESET_TIMEOUT = 60 * 60  # 1 hour
+FRONTEND_URL = env.str("FRONTEND_URL", default="http://localhost:3000")
+
+# Email ---------------------------------------------------------------------
+EMAIL_BACKEND = env.str(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+DEFAULT_FROM_EMAIL = env.str("EMAIL_FROM", default="noreply@example.com")
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {
