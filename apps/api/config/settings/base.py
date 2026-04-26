@@ -103,6 +103,7 @@ REMEMBER_ME_DURATION = 60 * 60 * 24 * 30  # 30 days
 # 1h expiry per NIST guidance (Django default is 3 days). The frontend URL
 # is the public base for the reset link emailed to the user.
 PASSWORD_RESET_TIMEOUT = 60 * 60  # 1 hour
+EMAIL_VERIFICATION_TIMEOUT = 60 * 60 * 24  # 24 hours
 FRONTEND_URL = env.str("FRONTEND_URL", default="http://localhost:3000")
 
 # Email ---------------------------------------------------------------------

@@ -2,6 +2,9 @@
 
 from .account_serializer import AccountSerializer, TenantSummarySerializer
 from .change_password_serializer import ChangePasswordSerializer
+from .email_verification_confirm_serializer import (
+    EmailVerificationConfirmSerializer,
+)
 from .mfa_serializers import (
     MFAPasswordConfirmSerializer,
     MFARecoveryCodesResponseSerializer,
@@ -21,6 +24,7 @@ from .user_serializer import UserSerializer
 __all__ = [
     "AccountSerializer",
     "ChangePasswordSerializer",
+    "EmailVerificationConfirmSerializer",
     "MFAPasswordConfirmSerializer",
     "MFARecoveryCodesResponseSerializer",
     "MFASetupConfirmSerializer",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from django.core import mail
 
 from apps.accounts.exceptions import DuplicateEmail, WeakPassword
 from apps.accounts.models import User
@@ -53,3 +54,19 @@ def test_sign_up_appends_a_collision_suffix_when_slug_taken() -> None:
     second = sign_up(email="bob@otherco.com", password=STRONG_PASSWORD)
 
     assert second.tenant.slug == "bob-2"
+
+
+@pytest.mark.django_db
+def test_sign_up_creates_user_unverified() -> None:
+    user = sign_up(email="alice@example.com", password=STRONG_PASSWORD)
+
+    assert user.email_verified_at is None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_sign_up_sends_verification_email_on_commit() -> None:
+    sign_up(email="alice@example.com", password=STRONG_PASSWORD)
+
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["alice@example.com"]
+    assert "/verify-email?" in mail.outbox[0].body

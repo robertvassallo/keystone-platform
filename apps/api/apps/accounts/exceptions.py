@@ -35,6 +35,10 @@ class InvalidResetToken(AuthError):
     """Raised when a password-reset token is missing, malformed, expired, or already used."""
 
 
+class InvalidVerificationToken(AuthError):
+    """Raised when an email-verification token is missing, malformed, or expired."""
+
+
 class WrongCurrentPassword(AuthError):
     """Raised when ``change_password`` receives a wrong ``current_password``."""
 

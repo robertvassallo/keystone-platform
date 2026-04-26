@@ -397,4 +397,47 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — Email verification — soft-block + grandfather-existing
+
+**Status:** accepted
+
+**Context:** Sign-up creates accounts with no proof the address belongs to the human at the keyboard. Production-readiness gap: a signed-up user could be a typo / impersonation. Need a verification flow that pushes users to confirm their email without locking the bootstrap path against a delivery failure.
+
+**Decision:**
+- **Soft-block, not hard-block.** Unverified users sign in and see a banner ("Verify your email") on every dashboard route. Sensitive actions (change-password, MFA disable, future tenant rename) are **not** gated on verification *yet* — that posture lands in a follow-up if/when the gap matters. Reason: hard-blocking sign-in on bootstrap day-one is fragile (mail deliverability) and the platform doesn't have many sensitive actions worth gating today.
+- **Schema = one nullable timestamp.** `User.email_verified_at: timestamptz null`. No separate `EmailVerificationToken` table — Django's `default_token_generator`-style HMAC tokens carry their own validity envelope. No index on `email_verified_at` either; the only filter we run on it (`me` payload null check) is per-row, not a scan.
+- **Two-migration shape per `sql.md`.** `0006` adds the column. `0007` is a `RunPython` data migration that backfills `email_verified_at = created_at` for every pre-existing row — pre-existing accounts were created by an admin / sign-up before this PR existed, treating them as unverified would mean a banner-flood on day-one with no value behind it. From this PR on, only fresh sign-ups land with `email_verified_at IS NULL`.
+- **Custom token generator.** `EmailVerificationTokenGenerator` subclasses `PasswordResetTokenGenerator` with two changes:
+  - `_make_hash_value` excludes `user.password` and `user.last_login`, includes `user.email_verified_at`. Reason: a user who signs up → signs in (updating `last_login`) → clicks the email link must not have the link fail. The verification flow's "self-invalidating" property is via `email_verified_at` flipping non-null on success, not via login state.
+  - `check_token` reads `EMAIL_VERIFICATION_TIMEOUT` (24 h) instead of `PASSWORD_RESET_TIMEOUT` (1 h). Verification email tolerates more delivery delay than reset.
+  - Different `key_salt` so tokens from one flow can't be replayed against the other (covered in tests).
+- **24h TTL.** Long enough for typical deliverability latency + the user actually opening their inbox; short enough that a stolen link doesn't outlive the user noticing. Reset tokens stay at 1h (NIST recommendation for high-stakes flows).
+- **Sign-up wiring uses `transaction.on_commit`.** The verification email fires *after* the transaction commits, so a rollback never leaks an email referencing a user who doesn't actually exist.
+- **Idempotent verify endpoint.** Already-verified user double-clicks the link → 204, no re-stamp on `email_verified_at`. Stops a stale email from rewriting the verification timestamp.
+- **`POST /email-verification/request/` is authenticated.** Re-sending the link requires a session — anonymous "send a link to this email" would be an account-enumeration vector. Throttled by the `auth` scope (5/min/IP).
+- **`POST /email-verification/confirm/` is public.** No session needed — the user clicks from email and may or may not be signed in. `auth` throttle scope still caps abuse.
+- **`/verify-email` is a top-level route**, not under `(auth)/` or `(dashboard)/`. Reason: works for both signed-in and signed-out users (a user might sign in first, then click the link from email). The `(auth)/` layout redirects signed-in users to `/`, which would break the signed-in-and-verifying flow.
+- **Server-side confirm.** The verify page calls `confirmEmailVerificationServer` from a Server Component, not a Client Component. The user clicks the link; the page renders the result on the server. No round-trip through the client bundle, no flicker, no "loading…" state for what's a single network call.
+- **`UserSerializer.email_verified_at` is exposed read-only** so `/me` carries the flag. Frontend `User` type updates to match; banner condition is `me.email_verified_at === null` in the dashboard layout.
+- **Banner is a Client Component** (the resend button needs an event handler), rendered conditionally by the **Server Component** dashboard layout. State machine inside the banner: `idle → pending → sent | throttled | error`. 429 maps to a calmer "slow down" message than the generic error.
+
+**Consequences:**
+- Adds two reversible migrations. Round-trip verified (`migrate accounts 0005` then forward).
+- Existing `User` factory tests had to add `email_verified_at: null` to fixture objects after the type change (caught by `tsc --noEmit`).
+- Sign-up tests now use `@pytest.mark.django_db(transaction=True)` for the email-on-commit assertion since `on_commit` only fires inside a real transaction (not the wrapping rollback that pytest-django uses by default).
+- Future "change email" flow (when it lands) re-uses this same machinery — issue a token to the *new* address, mark verified on click. The existing token generator's `email_verified_at` hash component handles the invalidation.
+- The dashboard layout now does an extra string check on every render, not a real cost. Conditional render of the banner Client Component avoids hydrating it for verified users.
+
+**Alternatives considered:**
+- *Hard-block sign-in* — strongest posture but punishes users on bad email deliverability. Acceptable for a B2B SaaS where the admin can manually verify; not the right default for bootstrap. Add as a per-tenant setting later.
+- *Custom `EmailVerificationToken` table* — gives admin "list outstanding tokens" + revoke. Adds a hot table for a feature with no admin surface today. Stateless tokens are simpler.
+- *Reuse `default_token_generator`* — convenient but `last_login` in the hash means a sign-up → sign-in → click flow breaks. The custom generator is mandatory for soft-block.
+- *Email-only token (no uid)* — looks cleaner in the URL but means the token has to encode the user identity, doubling its length. Two-segment `?uid=&token=` matches the existing reset-password pattern and keeps the link short.
+- *Existing-users get `email_verified_at = NULL`* — strictly correct from a "we never verified them" angle, but creates a banner-storm on day one with no actionable value (the existing users don't know what's happening, no email arrives). Backfill with `created_at` is the operationally-sane choice.
+- *Verify-email page rendered client-side* — would let us show a fancy spinner during confirm, but the call is single and fast; server render avoids the loading flicker entirely.
+
+**Revisit when:** Hard-blocking sign-in on unverified is wanted (per-tenant policy?), email-change flow lands (re-use the same generator + a new `email_pending` column), `/me` becomes too chatty for the banner check (move to a dedicated cheap endpoint or cache), or admin-side "verify on behalf of" tooling is needed.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->

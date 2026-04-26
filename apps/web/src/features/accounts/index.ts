@@ -2,6 +2,7 @@
 
 export { AccountCard } from "./components/AccountCard";
 export { ChangePasswordForm } from "./components/ChangePasswordForm";
+export { EmailVerificationBanner } from "./components/EmailVerificationBanner";
 export { ForgotPasswordForm } from "./components/ForgotPasswordForm";
 export { MfaChallengeForm } from "./components/MfaChallengeForm";
 export { MfaEnrolFlow } from "./components/MfaEnrolFlow";
