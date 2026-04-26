@@ -1,8 +1,24 @@
-# AI Working Agreement
+# AI Working Agreement — Keystone Platform
 
-This is the entry point for any AI agent — and any human collaborator — joining a project built from this template.
+This is the entry point for any AI agent — and any human collaborator — joining the Keystone Platform codebase.
 
 Read this file fully on first contact. Then read the docs that match the area you're working in (table below).
+
+## What this codebase is
+
+Multi-tenant SaaS platform. **This repo is the running product, not a template.** The boilerplate that seeded it lives at [`keystone`](https://github.com/robertvassallo/keystone); new projects fork from there.
+
+Currently shipped:
+
+- **Auth** — sign-up, sign-in, sign-out, password reset, change password
+- **MFA** — optional TOTP + recovery codes; sign-in challenge
+- **Email verification** — soft-block + banner
+- **Tenancy** — one tenant per user, many users per tenant; explicit `Account.owner`
+- **Invites** — owner sends, recipient accepts at `/accept-invite`
+- **Tenant rename**, **profile fields**, **users admin** (list / detail / search / filter)
+- **CI** — GitHub Actions; branch protection enforced
+
+Decisions baked into the code live in `docs/04_ai/decisions-log.md` — newest at the bottom. Read it before reopening a settled question.
 
 ## Stack at a glance
 
@@ -10,8 +26,9 @@ Read this file fully on first contact. Then read the docs that match the area yo
 - **Backend:** Django 5 + DRF + Python 3.12 (strict typing)
 - **Database:** Postgres 16
 - **Package managers:** pnpm (Node) + uv (Python)
-- **Lint / format:** ESLint flat config + Prettier + Stylelint + SQLFluff (SQL) + Ruff (Python)
-- **Testing:** Vitest + Playwright (web); pytest + pytest-django (api)
+- **Lint / format:** ESLint flat config + Prettier + Stylelint + Ruff (Python)
+- **Testing:** Vitest (web) + pytest + pytest-django (api)
+- **CI:** GitHub Actions on every PR; `web` + `api` are required checks for `main`
 
 Versions and rationale: `docs/01_architecture/stack.md`.
 
@@ -19,7 +36,6 @@ Versions and rationale: `docs/01_architecture/stack.md`.
 
 | Working on | Read |
 |---|---|
-| **First time on this project** | `docs/04_ai/first-project.md` (the day-1 runbook) |
 | **Anything** | This file → `docs/02_standards/git-workflow.md` → `docs/02_standards/project-structure.md` |
 | API endpoints / contracts | `docs/01_architecture/api-conventions.md` |
 | Components / pages | `docs/02_standards/react.md` + `semantic-html.md` + `accessibility.md` + `tailwind.md` |
@@ -31,7 +47,7 @@ Versions and rationale: `docs/01_architecture/stack.md`.
 | Anything auth-touching | `docs/01_architecture/auth.md` + `security.md` |
 | Anything DB-touching | `docs/02_standards/sql.md` + `docs/01_architecture/data-model.md` |
 | Tests | `docs/02_standards/testing.md` |
-| Setting up dev env | `docs/01_architecture/dev-setup.md` (+ `monorepo.md` for the target layout) |
+| Setting up dev env | `docs/01_architecture/dev-setup.md` |
 
 ## Hard rules
 
@@ -60,9 +76,9 @@ For any non-trivial change:
 3. **Plan before code** for changes touching > 3 files, migrations, auth, or refactors.
 4. **Implement.**
 5. **Self-check** with the relevant subagent (`@semantic-html-auditor`, `@a11y-reviewer`, `@sql-reviewer`, `@react-reviewer`, `@python-reviewer`).
-6. **Run lint + types + tests.** They must be green before you report done.
+6. **Run lint + types + tests.** They must be green before you report done. CI re-runs them on the PR — fix anything red there too.
 7. **Update `docs/04_ai/decisions-log.md`** if a non-obvious decision was made.
-8. **Open a PR** using the template; check off `docs/04_ai/review-checklist.md`.
+8. **Open a PR** using the template; check off `docs/04_ai/review-checklist.md`. The merge button stays grey until `web` + `api` checks pass.
 
 ## Subagents available
 
@@ -78,17 +94,14 @@ Defined in `.claude/agents/`. See `docs/04_ai/agents.md` for usage.
 
 Defined in `.claude/commands/`. See `docs/04_ai/prompting.md`.
 
-- `/scaffold-app` — one-time bootstrap of `apps/web` + `apps/api` + `packages/` (run before the first feature)
 - `/new-feature <slug>` — start a feature: branch + scope + plan + checklist
 
-## What this template does NOT include yet
+`.claude/commands/scaffold-app.md` is retained for reference but is **not** invoked on this repo — the platform is already bootstrapped. It's meaningful only on a fresh clone of the [`keystone`](https://github.com/robertvassallo/keystone) boilerplate.
 
-- Actual application code (`apps/web`, `apps/api`)
-- CI workflows (`.github/workflows/`)
-- Docker / docker-compose
-- License file
+## Repo hygiene
 
-Add these in a follow-up; document the decision in `decisions-log.md`.
+- **`origin` should always point at `keystone-platform`.** If you find it pointing at `keystone.git` (the boilerplate), fix it before pushing — that repo is template-only and shouldn't accept feature commits.
+- The boilerplate `keystone` and the product `keystone-platform` share a working-directory shape; double-check `git remote -v` before any push when working across both in different terminals.
 
 ## Out-of-band note for AI agents
 
