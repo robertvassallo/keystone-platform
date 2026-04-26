@@ -525,4 +525,40 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-26 — Tenant-owner permission distinct from `is_staff`
+
+**Status:** accepted
+
+**Context:** Through PR #14, every tenant-admin endpoint (`/users`, `/users/<id>`, the entire `/invites/` API) was gated by Django's built-in `is_staff` flag. That conflated two distinct concepts:
+
+* **Platform role** (`is_staff`) — Django's "this user can use the Django admin." A global, system-level flag.
+* **Tenant role** — per-tenant admin capability. The user who *signed up* and created the tenant should be able to invite teammates, browse `/users`, etc. — without anyone flipping `is_staff` for them.
+
+Read literally, the code shipped a SaaS that requires Keystone employees to manually grant every customer's primary user `is_staff` before the customer can invite their first colleague. That's wrong.
+
+**Decision:**
+- **New permission class** `IsTenantOwnerOrStaff` in `config/permissions.py`. Returns `True` when the request user is the `Account.owner` of their own tenant **OR** has `is_staff=True`. Platform staff retain access for support / debugging; the owner check covers normal customers.
+- **Four views switched** from `IsStaff` → `IsTenantOwnerOrStaff`: `UsersListView`, `UserDetailView`, `InvitesListCreateView`, `InviteDetailView`. No URL changes, no schema changes — purely a permission swap.
+- **`is_staff` retained** as a permission class but unused on any current view. It's the right gate for future "Keystone employee only" surfaces (cross-tenant audit, internal support tools, billing console). Keeping the class defined avoids re-introducing it later.
+- **`UserSerializer.is_tenant_owner`** — new computed read-only field on `/me/` (and every other place that serializes a user). Frontend uses it to gate the "Users" link in the dashboard widget without leaking the whole owner relationship. Computed as `obj.id == obj.tenant.owner_id`; null-safe.
+- **No new role enum.** "Owner" is implicit via `Account.owner_id`. There's only one owner per tenant; everyone else is "member" until/unless `Membership.role` lands. The two-role split is enough for invites + `/users` admin without a new column.
+- **Sign-up unchanged.** `services.sign_up` already sets `Account.owner` to the new user (PR #14). That means a fresh signup lands as `is_tenant_owner=True` and can immediately invite teammates — the bug this PR exists to fix.
+
+**Consequences:**
+- Customers can now actually use the platform without `is_staff` privilege escalation. The "send invite" button finally works for the user who pressed sign-up.
+- The `is_staff` flag reverts to its real Django meaning: only Keystone employees who log into the Django admin should have it. No changes to existing data — anyone who is `is_staff=True` keeps that flag and continues to have access to all the same endpoints (since the `IsTenantOwnerOrStaff` check passes).
+- `User.is_tenant_owner` adds one cheap field per `/me/` response (no extra query — `tenant.owner_id` is already populated via the existing `select_related` on the user serializer's `tenant` join).
+- Tests updated: 11 new view tests cover the new path (owner-not-staff → 200) and explicitly test the broken-old-path (member-of-tenant-not-owner → 403). Existing `is_staff=True` tests still pass because staff is still allowed.
+
+**Alternatives considered:**
+- *Rename `is_staff` to clarify its meaning*. Renaming a Django built-in field requires a migration, an `AbstractBaseUser` subclass override, and downstream documentation. Far more change for a name fix; the docstring on `IsStaff` is enough.
+- *Inline the check on each view (`if request.user.id == request.user.tenant.owner_id`)*. Works, but five copies of the same condition is exactly what permission classes exist to avoid. The class-based version is one line on each view.
+- *Combine into one `IsAdmin` class*. Tempting but loses the platform-vs-tenant distinction in the name. `IsTenantOwnerOrStaff` is verbose but reads correctly.
+- *Add a `Membership` table now and use `IsTenantAdmin` reading `Membership.role IN ('owner', 'admin')`*. Right-shape architecture but adds a table when one role suffices. The `Membership` table belongs to the multi-org / multi-admin PR, not this one.
+- *Have `IsTenantOwnerOrStaff` 404 instead of 403 on permission denied (to hide existence)*. The endpoints don't reveal anything beyond "this URL exists" — no per-row leak — and 403 is the conventionally honest response. 404-as-permission would also break frontend "access required" rendering.
+
+**Revisit when:** `Membership` table lands (extend the permission to "owner OR admin role on this tenant"; the public name stays the same), a tenant-owner-transfer flow ships (need to consider permission semantics during the transfer), or a true "platform admin" cross-tenant surface enters scope (then `IsStaff` finally has a real consumer).
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->

@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from config.authentication import SessionAuth
-from config.permissions import IsStaff
+from config.permissions import IsTenantOwnerOrStaff
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.request import Request
@@ -23,7 +23,7 @@ class InviteDetailView(APIView):
     """Revoke a pending invite — staff-only, scoped to caller's tenant."""
 
     authentication_classes = (SessionAuth,)
-    permission_classes = (IsStaff,)
+    permission_classes = (IsTenantOwnerOrStaff,)
 
     @extend_schema(
         responses={

@@ -46,6 +46,7 @@ describe("SignInForm", () => {
         email: "user@example.com",
         is_active: true,
         is_staff: false,
+        is_tenant_owner: false,
         tenant: null,
         email_verified_at: null,
         first_name: "",

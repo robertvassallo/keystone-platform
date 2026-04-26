@@ -50,6 +50,7 @@ describe("AcceptInviteForm", () => {
       display_name: "alice",
       is_active: true,
       is_staff: false,
+        is_tenant_owner: false,
       tenant: null,
       email_verified_at: null,
       created_at: "2026-04-26T00:00:00Z",
