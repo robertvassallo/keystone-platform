@@ -15,6 +15,7 @@ from apps.accounts.api.serializers import MFAVerifySerializer, UserSerializer
 from apps.accounts.exceptions import InvalidMFACode, MFAChallengeExpired
 from apps.accounts.services import verify_mfa_challenge
 
+from ._audit import audit_context_from_request
 from ._errors import InvalidMFACodeError, MFAChallengeExpiredError
 
 
@@ -47,6 +48,7 @@ class MFAVerifyView(APIView):
             user = verify_mfa_challenge(
                 request=request._request,
                 code=serializer.validated_data["code"],
+                audit_context=audit_context_from_request(request),
             )
         except MFAChallengeExpired as exc:
             raise MFAChallengeExpiredError() from exc

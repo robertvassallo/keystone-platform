@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.audit import AuditAction, AuditContext
 from apps.accounts.exceptions import (
     DuplicateEmail,
     InvalidInviteToken,
@@ -16,9 +17,16 @@ from apps.accounts.models import User
 from apps.accounts.selectors import get_user_by_email
 
 from .preview_invite import preview_invite
+from .record_audit_event import record_audit_event
 
 
-def accept_invite(*, uidb64: str, token: str, password: str) -> User:
+def accept_invite(
+    *,
+    uidb64: str,
+    token: str,
+    password: str,
+    audit_context: AuditContext | None = None,
+) -> User:
     """Validate the invite token and create a User in the invite's tenant.
 
     Raises:
@@ -55,5 +63,19 @@ def accept_invite(*, uidb64: str, token: str, password: str) -> User:
         invite.accepted_at = timezone.now()
         invite.accepted_by = user
         invite.save(update_fields=["accepted_at", "accepted_by", "updated_at"])
+
+    bound_context = AuditContext(
+        actor=user,
+        ip=audit_context.ip if audit_context is not None else None,
+        user_agent=audit_context.user_agent if audit_context is not None else None,
+    )
+    record_audit_event(
+        tenant=invite.tenant,
+        action=AuditAction.INVITE_ACCEPTED,
+        context=bound_context,
+        target_id=invite.pk,
+        target_type="invite",
+        target_label=invite.email,
+    )
 
     return user

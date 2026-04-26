@@ -7,8 +7,11 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpRequest
 
+from apps.accounts.audit import AuditAction, AuditContext
 from apps.accounts.exceptions import WeakPassword, WrongCurrentPassword
 from apps.accounts.models import User
+
+from .record_audit_event import record_audit_event
 
 
 def change_password(
@@ -17,6 +20,7 @@ def change_password(
     user: User,
     current_password: str,
     new_password: str,
+    audit_context: AuditContext | None = None,
 ) -> None:
     """Verify the current password, validate + save the new one.
 
@@ -36,3 +40,12 @@ def change_password(
     user.set_password(new_password)
     user.save(update_fields=["password", "updated_at"])
     update_session_auth_hash(request, user)
+
+    record_audit_event(
+        tenant=user.tenant,
+        action=AuditAction.AUTH_PASSWORD_CHANGE,
+        context=audit_context,
+        target_id=user.pk,
+        target_type="user",
+        target_label=user.email,
+    )

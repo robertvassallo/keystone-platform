@@ -16,6 +16,7 @@ from apps.accounts.exceptions import WeakPassword, WrongCurrentPassword
 from apps.accounts.models import User
 from apps.accounts.services import change_password
 
+from ._audit import audit_context_from_request
 from ._errors import WrongCurrentPasswordError
 
 
@@ -53,6 +54,7 @@ class ChangePasswordView(APIView):
                 user=user,
                 current_password=serializer.validated_data["current_password"],
                 new_password=serializer.validated_data["new_password"],
+                audit_context=audit_context_from_request(request),
             )
         except WrongCurrentPassword as exc:
             raise WrongCurrentPasswordError() from exc

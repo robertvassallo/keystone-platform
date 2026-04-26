@@ -22,6 +22,7 @@ from apps.accounts.exceptions import (
 from apps.accounts.models import User
 from apps.accounts.services import confirm_mfa_setup
 
+from ._audit import audit_context_from_request
 from ._errors import (
     InvalidMFACodeError,
     MFAAlreadyEnrolledError,
@@ -55,6 +56,7 @@ class MFASetupConfirmView(APIView):
             codes = confirm_mfa_setup(
                 user=user,
                 code=serializer.validated_data["code"],
+                audit_context=audit_context_from_request(request),
             )
         except MFAAlreadyEnrolled as exc:
             raise MFAAlreadyEnrolledError() from exc

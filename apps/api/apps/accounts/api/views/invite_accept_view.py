@@ -24,6 +24,7 @@ from apps.accounts.exceptions import (
 )
 from apps.accounts.services import accept_invite
 
+from ._audit import audit_context_from_request
 from ._errors import (
     DuplicateMemberError,
     InvalidInviteTokenError,
@@ -56,6 +57,7 @@ class InviteAcceptView(APIView):
                 uidb64=serializer.validated_data["uid"],
                 token=serializer.validated_data["token"],
                 password=serializer.validated_data["password"],
+                audit_context=audit_context_from_request(request),
             )
         except InvalidInviteToken as exc:
             raise InvalidInviteTokenError() from exc

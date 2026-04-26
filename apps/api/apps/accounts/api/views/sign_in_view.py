@@ -15,6 +15,7 @@ from apps.accounts.api.serializers import SignInSerializer, UserSerializer
 from apps.accounts.exceptions import InvalidCredentials
 from apps.accounts.services import sign_in
 
+from ._audit import audit_context_from_request
 from ._errors import InvalidCredentialsError
 
 
@@ -50,6 +51,7 @@ class SignInView(APIView):
                 email=serializer.validated_data["email"],
                 password=serializer.validated_data["password"],
                 remember_me=serializer.validated_data["remember_me"],
+                audit_context=audit_context_from_request(request),
             )
         except InvalidCredentials as exc:
             raise InvalidCredentialsError() from exc

@@ -9,15 +9,22 @@ from django.contrib.auth import login as django_login
 from django.http import HttpRequest
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
+from apps.accounts.audit import AuditAction, AuditContext
 from apps.accounts.exceptions import InvalidMFACode, MFAChallengeExpired
 from apps.accounts.models import User
 
 from ._mfa_helpers import consume_recovery_code, is_totp_format
+from .record_audit_event import record_audit_event
 
 CHALLENGE_SESSION_KEY = "mfa_challenge"
 
 
-def verify_mfa_challenge(*, request: HttpRequest, code: str) -> User:
+def verify_mfa_challenge(
+    *,
+    request: HttpRequest,
+    code: str,
+    audit_context: AuditContext | None = None,
+) -> User:
     """Validate the partial ticket + the supplied code, complete sign-in.
 
     The ticket is **consumed** (removed from session) on success so it
@@ -65,6 +72,20 @@ def verify_mfa_challenge(*, request: HttpRequest, code: str) -> User:
         )
         if remember_me:
             request.session.set_expiry(settings.REMEMBER_ME_DURATION)
+
+        bound_context = AuditContext(
+            actor=user,
+            ip=audit_context.ip if audit_context is not None else None,
+            user_agent=audit_context.user_agent if audit_context is not None else None,
+        )
+        record_audit_event(
+            tenant=user.tenant,
+            action=AuditAction.AUTH_SIGN_IN,
+            context=bound_context,
+            target_id=user.pk,
+            target_type="user",
+            target_label=user.email,
+        )
         return user
 
     raise InvalidMFACode("Invalid authentication code.")

@@ -19,4 +19,8 @@ urlpatterns: list[URLPattern | URLResolver] = [
         "invites/",
         include("apps.accounts.api.invite_urls", namespace="invites"),
     ),
+    path(
+        "audit/",
+        include("apps.accounts.api.audit_urls", namespace="audit"),
+    ),
 ]
