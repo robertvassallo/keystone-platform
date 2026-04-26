@@ -27,7 +27,11 @@ export default async function DashboardPage(): Promise<JSX.Element> {
 
       <p className="text-fg-muted">
         Signed in as{" "}
-        <span className="font-medium text-fg">{me.email}</span>.
+        <span className="font-medium text-fg">{me.display_name}</span>
+        {me.display_name !== me.email ? (
+          <span className="text-fg-subtle"> ({me.email})</span>
+        ) : null}
+        .
       </p>
 
       <section
@@ -38,6 +42,14 @@ export default async function DashboardPage(): Promise<JSX.Element> {
           Account
         </h2>
         <ul className="space-y-1 text-sm">
+          <li>
+            <Link
+              href="/settings/profile"
+              className="text-accent hover:underline focus-visible:underline"
+            >
+              Profile
+            </Link>
+          </li>
           <li>
             <Link
               href="/settings/account"

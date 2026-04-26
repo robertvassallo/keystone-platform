@@ -19,6 +19,9 @@ const FAKE_USER = {
   is_staff: false,
   tenant: null,
         email_verified_at: null,
+        first_name: "",
+        last_name: "",
+        display_name: "user",
   created_at: "2026-04-25T00:00:00Z",
 };
 

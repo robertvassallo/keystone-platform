@@ -14,11 +14,16 @@ class UserSerializer(serializers.ModelSerializer[User]):
 
     tenant = TenantSummarySerializer(read_only=True)
 
+    display_name = serializers.CharField(read_only=True)
+
     class Meta:
         model = User
         fields = (
             "id",
             "email",
+            "first_name",
+            "last_name",
+            "display_name",
             "is_active",
             "is_staff",
             "tenant",
