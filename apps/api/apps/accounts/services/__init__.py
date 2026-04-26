@@ -13,6 +13,7 @@ from .send_email_verification import send_email_verification
 from .sign_in import sign_in
 from .sign_out import sign_out
 from .sign_up import sign_up
+from .update_profile import update_profile
 from .verify_email import verify_email
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "sign_out",
     "sign_up",
     "start_mfa_setup",
+    "update_profile",
     "verify_email",
     "verify_mfa_challenge",
 ]

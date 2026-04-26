@@ -22,3 +22,4 @@ export { requestPasswordReset } from "./request-password-reset";
 export { signIn, type SignInResult } from "./sign-in";
 export { signOut } from "./sign-out";
 export { signUp } from "./sign-up";
+export { updateMe } from "./update-me";

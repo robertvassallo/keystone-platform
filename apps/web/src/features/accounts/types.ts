@@ -17,6 +17,9 @@ export interface Account {
 export interface User {
   readonly id: string;
   readonly email: string;
+  readonly first_name: string;
+  readonly last_name: string;
+  readonly display_name: string;
   readonly is_active: boolean;
   readonly is_staff: boolean;
   readonly tenant: TenantSummary | null;

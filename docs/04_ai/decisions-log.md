@@ -440,4 +440,42 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-25 — Profile fields (first_name, last_name, display_name)
+
+**Status:** accepted
+
+**Context:** The User model has had `email` as the only display surface since auth-core. Sign-out button, dashboard "Signed in as", and the eventual invite-email subject ("Alice Anderson invited you…") all benefit from a friendlier handle. This PR adds optional name fields and a profile-edit page; nothing is required, nothing changes about sign-up.
+
+**Decision:**
+- **Two columns, AbstractUser-shape exactly.** `first_name: CharField(max_length=150, blank=True, default="")` and `last_name: CharField(max_length=150, blank=True, default="")`. Matches Django's `AbstractUser` so future code that assumes that shape (admin, third-party packages) Just Works. The 150-char ceiling is Django's; longer names get caught at the schema layer rather than in business logic.
+- **Empty string default, not null.** Lets the DB default fill existing rows in a single non-blocking migration with **no separate backfill step**. Django's `CharField(blank=True)` convention is empty string; semantically the same as null for a "not set" name and avoids the constant `if name is None else name` dance throughout the code.
+- **`display_name` is a Python property, not a column.** Computed as `f"{first_name} {last_name}".strip() or email_local_part or email`. Reasoning: (1) two sources of truth for the same logical value invites drift; (2) users rarely want a separate "display name" — `Alice Anderson` is what they want to be called. If a per-user override becomes a real ask (e.g. preferred name distinct from legal name), add a third nullable column then; until then, the property is enough.
+- **Display fallback chain.** Full name → email local part → email. The email-local-part fallback ("alice" instead of "alice@acme.com") is friendlier than the raw email and works for users who haven't set names yet — including all pre-existing accounts. Banner-storm avoided because no one is forced to do anything.
+- **`PATCH /api/v1/auth/me/` on the existing `MeView`.** Not a new endpoint at `/api/v1/auth/profile/`. The `me` resource is the user's own resource; partial-update via PATCH is the RESTful primitive. Keeps URL surface tight.
+- **`MeUpdateSerializer` whitelists writable fields.** Only `first_name` and `last_name` are accepted; unknown keys are silently dropped (DRF default). A user can't sneak `is_staff: true` past the serializer because the serializer doesn't even define those fields. Test explicitly covers `is_staff` and `email` being ignored.
+- **`update_profile` service, not in-view persistence.** The view validates → calls service → re-serializes. Service does the trim + length cap + `update_fields=["first_name", "last_name", "updated_at"]` save. Same layered pattern as the rest of the app.
+- **`UserSerializer` exposes `display_name` as read-only.** Frontend never recomputes; the `User` type carries `display_name` everywhere and components use it directly. Single source of truth lives in Python.
+- **`ProfileForm` is a Client Component** (RHF + Zod, same posture as `ChangePasswordForm`). The page that renders it is a Server Component that fetches `me` and passes `initial` as a prop — no client-side fetch on mount, no flicker, no auth round-trip on the client.
+- **Form button disabled until dirty.** Stops the no-op submit. Combined with `router.refresh()` after a successful save, the UI re-fetches `me` on the page that just saved (the layout's "Signed in as" line updates if you go back to the dashboard).
+- **No sign-up form change.** Sign-up stays email + password. Profile is filled in (or not) after the fact. Reasoning: one-step sign-up is the friendliest possible flow, and required fields can always be added later as a per-tenant policy.
+
+**Consequences:**
+- Single migration (`0008_user_profile_fields`). Reversible — both `RemoveField`s. No data migration needed.
+- Existing User type fixtures in tests need `first_name`, `last_name`, `display_name` added (caught immediately by `tsc --noEmit`).
+- `MeView.patch` is the first non-GET method on `/me/`. Future expansions (avatar URL, notification settings) extend `MeUpdateSerializer` without splitting the endpoint.
+- Dashboard "Signed in as" line now shows display name with email parenthesised when they differ (e.g. "Signed in as **Alice Anderson** (alice@acme.com)"). When they match (no profile fields, email-local-part fallback equals email), only the display name shows.
+- `/settings/profile` joins `/settings/account` under the same path prefix; a `/settings/` index page becomes obvious next.
+- The users list still shows email-as-primary. Updating that to show `display_name` is a deliberate punt — keeps this PR tight, and the list churn isn't load-bearing for the invites flow.
+
+**Alternatives considered:**
+- *Single `name` field instead of first / last* — culturally awkward (mononyms, multi-part surnames, name-order conventions vary). Two fields plus a `display_name` derivation handles all these cleanly and matches AbstractUser convention.
+- *Required at sign-up* — biggest UX cost of any sign-up addition; deferred until invites land and we know what minimum metadata an invitee needs to be useful.
+- *Storing `display_name` as a column* — duplicate state, drift risk. The property is one line and runs free.
+- *Dedicated `/profile/` endpoint* — the user-the-resource is `/me/`. Adding a parallel `/profile/` route splits one resource across two URLs. Not worth the API surface bloat.
+- *Updating users-list / users-detail in this PR* — extra churn on a feature that already covers the user-visible "I want to set my name" flow. Cleaner as a follow-up if it matters.
+
+**Revisit when:** Invites ship (probably bundles this with display in invite-emails), per-tenant required-fields policy enters scope (move name validation out of MaxLength-only), preferred-name distinct from legal-name is requested (add a third column), or a `/settings/` index page lands and the profile/account/security split needs a top-level overview.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->

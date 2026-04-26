@@ -1,4 +1,4 @@
-"""View — GET /api/v1/auth/me/."""
+"""View — GET / PATCH /api/v1/auth/me/."""
 
 from __future__ import annotations
 
@@ -10,12 +10,13 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.api.serializers import UserSerializer
+from apps.accounts.api.serializers import MeUpdateSerializer, UserSerializer
 from apps.accounts.models import User
+from apps.accounts.services import update_profile
 
 
 class MeView(APIView):
-    """Return the currently signed-in user."""
+    """Read or partially-update the currently signed-in user."""
 
     authentication_classes = (SessionAuth,)
     permission_classes = (IsAuthenticated,)
@@ -29,5 +30,29 @@ class MeView(APIView):
     )
     def get(self, request: Request) -> Response:
         user = request.user
-        assert isinstance(user, User)  # IsAuthenticated guarantees this
+        assert isinstance(user, User)
+        return Response(UserSerializer(user).data)
+
+    @extend_schema(
+        request=MeUpdateSerializer,
+        responses={
+            status.HTTP_200_OK: UserSerializer,
+            status.HTTP_400_BAD_REQUEST: None,
+            status.HTTP_401_UNAUTHORIZED: None,
+        },
+        operation_id="auth_me_update",
+    )
+    def patch(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+
+        serializer = MeUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        update_profile(
+            user=user,
+            first_name=serializer.validated_data.get("first_name"),
+            last_name=serializer.validated_data.get("last_name"),
+        )
+
         return Response(UserSerializer(user).data)

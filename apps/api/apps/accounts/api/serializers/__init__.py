@@ -5,6 +5,7 @@ from .change_password_serializer import ChangePasswordSerializer
 from .email_verification_confirm_serializer import (
     EmailVerificationConfirmSerializer,
 )
+from .me_update_serializer import MeUpdateSerializer
 from .mfa_serializers import (
     MFAPasswordConfirmSerializer,
     MFARecoveryCodesResponseSerializer,
@@ -31,6 +32,7 @@ __all__ = [
     "MFASetupResponseSerializer",
     "MFAStatusResponseSerializer",
     "MFAVerifySerializer",
+    "MeUpdateSerializer",
     "PasswordResetConfirmSerializer",
     "PasswordResetRequestSerializer",
     "SignInSerializer",

@@ -33,6 +33,19 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text="Lowercased, unique. The login identifier.",
     )
 
+    first_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Optional given name. Empty string when not set.",
+    )
+    last_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Optional family name. Empty string when not set.",
+    )
+
     is_active = models.BooleanField(
         default=True,
         help_text="False blocks authentication; soft-delete also flips this.",
@@ -101,6 +114,15 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self) -> str:
         return self.email
+
+    @property
+    def display_name(self) -> str:
+        """Friendly identifier: full name if set, else the email's local part."""
+        full_name = f"{self.first_name} {self.last_name}".strip()
+        if full_name:
+            return full_name
+        local = self.email.split("@", 1)[0]
+        return local or self.email
 
     def soft_delete(self, *, deleted_by: User | None = None) -> None:
         """Mark the user soft-deleted; deactivate to block auth."""

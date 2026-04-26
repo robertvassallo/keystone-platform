@@ -9,6 +9,7 @@ import { z } from "zod";
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 128;
 const MAX_EMAIL_LENGTH = 254;
+const MAX_NAME_LENGTH = 150;
 
 export const signInSchema = z.object({
   email: z
@@ -125,3 +126,20 @@ export const mfaChallengeRecoverySchema = z.object({
 export type MfaChallengeRecoveryInput = z.infer<
   typeof mfaChallengeRecoverySchema
 >;
+
+export const profileSchema = z.object({
+  firstName: z
+    .string()
+    .max(
+      MAX_NAME_LENGTH,
+      `First name must be ${String(MAX_NAME_LENGTH)} characters or fewer.`,
+    ),
+  lastName: z
+    .string()
+    .max(
+      MAX_NAME_LENGTH,
+      `Last name must be ${String(MAX_NAME_LENGTH)} characters or fewer.`,
+    ),
+});
+
+export type ProfileInput = z.infer<typeof profileSchema>;
