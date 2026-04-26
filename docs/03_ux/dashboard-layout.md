@@ -42,6 +42,16 @@ Mobile-first CSS; layers added at higher breakpoints.
 
 Open / close transitions respect `prefers-reduced-motion`.
 
+### Sidebar surface (theming)
+
+The `<aside>` element rendering the primary nav is a **theme surface**: its tokens may differ from the main content area. This is what makes `mixed` mode work (light canvas + dark sidebar).
+
+```tsx
+<aside data-surface-theme={mode === 'mixed' ? 'dark' : undefined}>
+```
+
+Components inside the sidebar consume the same semantic Tailwind classes as everywhere else (`bg-bg-surface`, `text-fg`); the cascade re-paints them under the surface override. Don't author a sidebar-specific colour palette — the surface attribute does the work. See `theming.md`.
+
 ## Density modes
 
 Three modes, user-selectable in settings, default `comfortable`:

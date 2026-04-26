@@ -5,16 +5,21 @@ Tokens are the source of truth for every visible decision: colour, spacing, type
 ## Tier model
 
 ```
-primitive  →  semantic  →  component
+primitive  →  palette  →  semantic  →  component
 ```
 
 | Tier | Example | Used by |
 |---|---|---|
-| **Primitive** | `gray-50`, `gray-100`, … `indigo-600` — the raw palette | Only the next tier |
+| **Primitive** | `gray-50`, `gray-100`, … `indigo-600` — the raw colour ramps | Only the next tier |
+| **Palette** | A curated palette (`indigo`, `slate`, `emerald`) or a tenant-created **brand theme** (`brand-<uuid>`) — a named set of mappings to semantic tokens, in `light` and `dark` flavours | Theme system; emitted into `[data-palette="…"][data-theme="…"]` selectors |
 | **Semantic** | `bg-canvas`, `bg-surface`, `fg-default`, `fg-muted`, `accent-fg` | Components, Tailwind theme |
 | **Component** | `button-primary-bg`, `card-shadow` | A single component (rare; only when reuse warrants) |
 
-Components reference **semantic** tokens. They never reference primitives directly.
+Components reference **semantic** tokens. They never reference primitives or palettes directly. The active palette and mode determine which primitive values back the semantic tokens at runtime.
+
+Curated palettes ship in `packages/tokens/src/palettes/` and bake into `tokens.css`. **Brand themes** are tenant-created palettes stored in the DB and rendered into a tenant-scoped `<style>` block at first paint. Both produce the same `[data-palette="…"][data-theme="…"]` selector shape — the rest of the system can't tell them apart.
+
+User-facing copy says "theme" (the picker shows themes); the architecture says "palette" (the data structure is a palette). See `theming.md` for how palettes, modes, and surface overrides compose, and for the brand-theme builder + lifecycle.
 
 ## Files
 
@@ -26,8 +31,13 @@ packages/tokens/
 │   │   ├── space.ts
 │   │   ├── type.ts
 │   │   └── radius.ts
+│   ├── palettes/                  # one file per registered palette
+│   │   ├── indigo.ts              # exports { light, dark }
+│   │   ├── slate.ts
+│   │   ├── emerald.ts
+│   │   └── index.ts               # registry consumed by build + UI pickers
 │   ├── semantic/
-│   │   ├── light.ts
+│   │   ├── light.ts               # default-palette mapping (kept for back-compat / SSR baseline)
 │   │   └── dark.ts
 │   └── index.ts
 ├── build.ts        # generate tokens.css + tailwind.preset.ts + tokens.d.ts
@@ -35,9 +45,9 @@ packages/tokens/
 ```
 
 Build outputs:
-- `dist/tokens.css` — all CSS custom properties for `:root` and `[data-theme="dark"]`.
+- `dist/tokens.css` — CSS custom properties for every (curated palette × mode) combination, plus a surface-override block for region-local theming. Brand-theme CSS is *not* in `tokens.css` — it's emitted at request time, scoped to the active tenant.
 - `dist/tailwind.preset.ts` — Tailwind theme extension.
-- `dist/tokens.d.ts` — typed constants for TS code.
+- `dist/tokens.d.ts` — typed constants for TS code (semantic token names, curated palette ids, modes).
 
 ## Colour
 
@@ -45,7 +55,7 @@ Build outputs:
 
 `gray`, `red`, `amber`, `green`, `blue`, `indigo`, `purple` — each with stops `50`, `100`, …, `950`. Tailwind defaults are fine; pin in `primitive/color.ts`.
 
-### Semantic mappings (light)
+### Semantic mappings (default palette `indigo`, light)
 
 | Token | Primitive |
 |---|---|
@@ -66,7 +76,24 @@ Build outputs:
 | `warning-fg` | `amber-600` |
 | `danger-fg` | `red-600` |
 
-Dark theme remaps the **same** semantic tokens to different primitives — components don't change.
+Dark mode remaps the **same** semantic tokens to different primitives — components don't change.
+
+Each theme (curated palette or tenant brand theme) ships its own `light` and `dark` mapping with the same key set. Switching themes never adds or removes a semantic token; it only changes the value each token points at. See `theming.md` for the theme registry and the (theme × mode) selector matrix.
+
+### Platform-locked semantic subset
+
+A subset of the semantic tokens is platform-locked: brand themes cannot override them. They convey **meaning**, not style.
+
+| Locked token | Why |
+|---|---|
+| `success-fg`, `success-bg-subtle` | Green semantics — repurposing breaks "everything's fine" recognition |
+| `warning-fg`, `warning-bg-subtle` | Amber semantics |
+| `danger-fg`, `danger-bg-subtle` | Red semantics |
+| `fg-on-accent` | Auto-derived as black or white per accent's luminance — picked for the tenant by the builder |
+
+These keys are present in every theme (curated and brand) but the brand-theme serializer rejects writes to them. Curated palettes can deviate from the default green/amber/red only with a decisions-log entry — the colour-encodes-meaning convention is a platform contract.
+
+`focus-ring` derives from `accent-fg` automatically with a min-contrast clamp against `bg-surface`. No theme overrides it directly.
 
 ## Spacing
 
@@ -115,16 +142,19 @@ All motion respects `prefers-reduced-motion: reduce` and falls back to `0 ms`.
 
 ## Theme switching
 
-- Theme attribute on `<html>`: `data-theme="light" | "dark"`.
-- Default to `prefers-color-scheme`; user preference persisted in `localStorage` and synced server-side once authenticated.
-- Switch is instant — no flash of unstyled content (handled by an inline pre-paint script).
+- Two attributes on `<html>`: `data-theme="light" | "dark" | "mixed"` and `data-palette="<curated-id | brand-<uuid>>"`.
+- A region-local subtree may carry `data-surface-theme="dark"` to opt into dark tokens locally (this is how `mixed` paints the sidebar).
+- Persistence, resolution (user pick → tenant default → platform default, with `lock_level` of `none` / `allowlist` / `strict`), the cookie mirror used for FOUC-free first paint, the brand-theme builder, and the admin surfaces all live in `theming.md`. This doc is the vocabulary; that doc is the grammar.
 
 ## Adding a new token
 
 1. Justify it (component reuse ≥ 3, or a meaningful new semantic role).
-2. Add the primitive (if needed) → semantic → Tailwind preset.
-3. Update `docs/03_ux/design-tokens.md` (this file).
-4. Open a PR; design review before merge.
+2. Add the primitive (if needed) → add the semantic key to **every curated palette**, in both `light` and `dark` → Tailwind preset.
+3. Decide whether it's overrideable by brand themes or platform-locked. Update the brand-theme serializer's allowlist accordingly.
+4. Update `docs/03_ux/design-tokens.md` (this file).
+5. Open a PR; design review before merge.
+
+For adding a new curated **palette** (rather than a new token), see `theming.md` → "Adding a curated palette". Tenant-created **brand themes** don't go through this process — they're created at runtime via the builder.
 
 ## Anti-patterns
 
@@ -137,6 +167,8 @@ All motion respects `prefers-reduced-motion: reduce` and falls back to `0 ms`.
 
 - [ ] No raw colour / spacing / radius values in components
 - [ ] Tokens flow through CSS custom properties, consumed by Tailwind theme
-- [ ] Dark theme mapping in place for every new semantic token
+- [ ] Light + dark mapping in place for every curated palette for every new semantic token
+- [ ] Platform-locked subset (`success-*`, `warning-*`, `danger-*`, `fg-on-accent`) decided and reflected in the brand-theme serializer
 - [ ] Motion respects reduced-motion preference
-- [ ] Tier respected: components → semantic → primitive
+- [ ] Tier respected: components → semantic → palette → primitive
+- [ ] No component reads `data-theme` / `data-palette` to branch styles

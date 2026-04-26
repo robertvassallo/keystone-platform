@@ -40,6 +40,7 @@ Versions and rationale: `docs/01_architecture/stack.md`.
 | API endpoints / contracts | `docs/01_architecture/api-conventions.md` |
 | Components / pages | `docs/02_standards/react.md` + `semantic-html.md` + `accessibility.md` + `tailwind.md` |
 | Styles / tokens | `docs/02_standards/css-sass.md` + `docs/03_ux/design-tokens.md` |
+| Theming / appearance (light, dark, mixed, palettes, per-user / per-tenant) | `docs/03_ux/theming.md` + `docs/03_ux/design-tokens.md` |
 | Forms | `docs/03_ux/forms.md` + `accessibility.md` + `react.md` |
 | Tables / lists / dashboards | `docs/03_ux/data-display.md` + `dashboard-layout.md` |
 | API views / serializers | `docs/02_standards/python.md` + `docs/01_architecture/auth.md` |
