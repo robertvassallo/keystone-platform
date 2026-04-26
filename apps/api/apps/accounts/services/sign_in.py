@@ -14,6 +14,7 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 from apps.accounts.audit import AuditAction, AuditContext
 from apps.accounts.exceptions import InvalidCredentials
 from apps.accounts.models import User
+from apps.accounts.security import bypass_rls
 
 from .mfa_verify_challenge import CHALLENGE_SESSION_KEY
 from .record_audit_event import record_audit_event
@@ -51,11 +52,14 @@ def sign_in(
     Raises:
         InvalidCredentials: Authentication failed for any reason.
     """
-    user = django_authenticate(
-        request,
-        username=email.lower().strip(),
-        password=password,
-    )
+    # Authentication queries the User table by email *before* a tenant
+    # is known; bypass RLS for the lookup, then resume normal scoping.
+    with bypass_rls():
+        user = django_authenticate(
+            request,
+            username=email.lower().strip(),
+            password=password,
+        )
     if user is None or not isinstance(user, User):
         raise InvalidCredentials("Email or password is incorrect.")
 

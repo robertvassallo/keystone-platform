@@ -637,4 +637,85 @@ Read literally, the code shipped a SaaS that requires Keystone employees to manu
 
 ---
 
+## 2026-04-25 — Theming system — three orthogonal axes (mode × palette × surface), per-user with tenant default + optional lock
+
+**Status:** proposed (design — not yet implemented)
+
+**Context:** Today the platform paints in one palette (indigo + gray) with `data-theme="light" | "dark"` flipping a single CSS custom-property block. Customers want richer choice: pick a brand palette, run light / dark / a "mixed" combination (dark sidebar, light content), and let tenant owners set a default palette and optionally lock it for brand consistency. Without a model for this now, every new palette or per-tenant branding ask becomes a CSS branch in components and a one-off settings field; the theme system would rot fast.
+
+**Decision:**
+- **Three orthogonal axes**: **Mode** (`light | dark | mixed | system`), **Palette** (`indigo` (default), `slate`, `emerald`, `rose`, `amber`, …), **Surface** (per-region override). Any (mode, palette) combination is valid; surface is set per region by layout components.
+- **Token tier model gains a "palette" layer** between primitive and semantic: `primitive → palette → semantic → component`. Each palette is a TS module exporting `{ light, dark }` mappings with the same semantic key set. Components still consume only semantic tokens; switching palette changes which primitives back the semantics, not the token names. Documented in `docs/03_ux/design-tokens.md`.
+- **Selectors on `<html>`**: `data-theme="light" | "dark" | "mixed"` and `data-palette="<name>"`. Tokens.css emits one block per `(palette, mode)` pair: `[data-palette="indigo"][data-theme="dark"] { … }`. The Tailwind preset stays unchanged — it still reads from `var(--color-…)`; the cascade does the rest.
+- **`mixed` is implemented as `data-theme="light"` plus a surface override on the navigation rail**, not as a third global token block. The sidebar carries `data-surface-theme="dark"` which re-declares the dark token block within its subtree. Components inside cascade the dark values without branching. **One mixed combination only** (dark sidebar / light content) — the reverse isn't offered, to keep the contrast story tractable.
+- **Surface overrides are scoped to the navigation rail in v1.** New uses (e.g. dark "command palette" inside light content) require their own decisions-log entry. The mechanism is general but its uses must be deliberate, otherwise contrast guarantees become per-page chaos.
+- **Resolution order**: `user pref → tenant default → platform default`. Tenant owner can `palette_lock` (forces palette to tenant default; user keeps their mode pick) and `palette_allowlist` (restrict which palettes users can choose; empty = all allowed). Unknown palette in a user record (e.g. one removed from the platform) silently degrades to platform default — fallback never throws.
+- **Persistence split**: user-level fields on `User` (`theme_mode`, `theme_palette`; empty string = inherit), tenant-level on `Account` (`theme_default_mode`, `theme_default_palette`, `theme_palette_lock`, `theme_palette_allowlist`). Cookie mirror of the *resolved* values (`theme_mode`, `theme_palette`) for FOUC-free first paint; the DB is canonical.
+- **First paint via server-read cookies in the App Router root layout** (`apps/web/src/app/layout.tsx`). Cookies are written on sign-in and on any theme-change PATCH. `system` resolves client-side via `prefers-color-scheme` in an inline pre-paint script.
+- **API surfaces follow established patterns**: `GET /api/v1/me/` returns a resolved `theme` block (mode, palette, tenant_lock, tenant_allowlist); `PATCH /api/v1/me/` accepts user theme writes; `PATCH /api/v1/account/` accepts tenant-default + lock + allowlist (owner-only via the existing `IsTenantOwnerOrStaff`, same per-method permission shape used by tenant rename).
+- **Two admin pages**: `/settings/profile/appearance` (every user) and `/settings/account/branding` (owner / staff). Both share a `<ThemePreview>` component that re-paints under a local surface override so the user can see the effect without committing.
+- **Build-time contrast check.** Every (palette × mode) must meet WCAG 2.2 AA — 4.5 : 1 for body text, 3 : 1 for UI. New palettes can't merge if any pair fails. CI runs `pnpm --filter @keystone/tokens check:contrast`.
+- **No information conveyed by colour alone** stays inviolable. Status badges keep icon + text + colour. Theme choice never gates content.
+- **No theme branching in component code.** Every variation flows through token cascade. Reading `data-theme` in a component is an anti-pattern documented in `theming.md`.
+
+**Consequences:**
+- The tokens build (`packages/tokens/build.mjs`) fans out to N palettes × 2 modes — output CSS grows linearly with palette count. Five initial palettes ≈ 10 token blocks. Acceptable; tokens.css is small either way and gzip handles repetition well.
+- Adding a token now requires updating every registered palette (`light` + `dark`), not just two semantic files. The check is mechanical and the build can fail on missing keys to enforce it.
+- Two new admin pages, three new model fields on `Account`, two on `User`, one new migration. Consistent with the existing tenant-settings shape (rename, audit log).
+- The cookie mirror is a small surface — two cookies, server-set, server-read. Not a security boundary (theme leaks nothing); SameSite=Lax, no HTTPOnly required since the client also reads them when changing mode.
+- Tenant owners gain real branding leverage (default palette + lock) without each customer needing engineering involvement. Future asks ("custom logo", "custom accent hex") slot into the same Branding page.
+- Storybook / preview pages need to render under all (palette × mode) combinations to surface contrast bugs early. Adds a matrix story; one-time setup.
+
+**Alternatives considered:**
+- *Single `data-theme` enum with all combinations* (`indigo-light`, `indigo-dark`, `emerald-light`, `mixed-indigo`, …). Tempting for selector simplicity but it explodes the namespace and couples mode to palette at the selector level. Two attributes (mode × palette) keep them independent and let the build emit a clean cross-product.
+- *Drop `mixed` and just expose `data-surface-theme` as a free-form developer tool*. Cleaner architecture but loses the user-facing knob — the user said they want a single setting for "mixed". Surface override stays internal; mixed is the only user-visible composition that uses it in v1.
+- *Class-based theming (`.theme-dark`, `.palette-indigo`)*. Works, but `[data-*]` is the existing convention (`darkMode: ["class", '[data-theme="dark"]']` in the Tailwind preset). Don't introduce a second selector style for one feature.
+- *Per-component dark/light forks.* The "obvious" anti-pattern. Multiplies surface area by 2× (or N× with palettes) and breaks the "components consume semantic tokens" rule. Explicitly forbidden in `theming.md` anti-patterns.
+- *Persist only in `localStorage`.* Reasonable for the unauthenticated marketing site, but breaks cross-device continuity for signed-in users. DB + cookie mirror is the same pattern used elsewhere (sidebar collapse is the local-only outlier; theme is too important to keep ephemeral).
+- *Tenant lock implies palette **and** mode lock*. Considered, but mode is a personal accessibility / preference choice (light vs dark) that an owner shouldn't override. Lock palette only.
+- *Two mixed variants (dark sidebar / light content **and** light sidebar / dark content).* Doubles the contrast matrix and adds little value. Pick one; revisit if real demand surfaces.
+- *Compute resolved theme on every request server-side and inject into HTML directly without a cookie.* Works, but adds a request-time DB read for unauthenticated visitors (slow path) and re-computes on every nav. Cookie mirror is cheap and good enough.
+- *Infinite-palette "BYO hex" customisation.* Right shape eventually for white-label tenants; out of scope for v1. Premade palettes are auditable for contrast in CI; customer hex inputs are not. When that ask lands, it gets its own ADR.
+- *`prefers-contrast` high-contrast mode now.* Out of scope for v1 but the architecture leaves room — a third mode value (`high-contrast`) slots in alongside `light` / `dark` / `mixed`.
+
+**Revisit when:** First palette beyond indigo lands (the contrast check pipeline becomes load-bearing), white-label tenants ask for arbitrary hex (palette → BYO accent), `prefers-contrast` becomes a customer ask, mixed-mode demand for the inverse (light sidebar / dark content) materialises, theme settings need to feed a hosted email or PDF export (token system needs a non-DOM emitter), or the cookie mirror becomes a meaningful payload (consider compressing or moving to a single JSON cookie).
+
+---
+
+## 2026-04-26 — Postgres RLS — defense-in-depth on tenant filtering
+
+**Status:** accepted
+
+**Context:** Every selector in the codebase explicitly `.filter(tenant_id=…)`. A future PR that forgets that filter on a new selector silently leaks across tenants. Application-layer scoping is centralized but not load-bearing in any structural sense — the database itself was happy to return rows from any tenant. This PR pushes the gate down: even a buggy selector that forgets the filter returns zero rows from other tenants.
+
+**Decision:**
+- **RLS policies on three tables**: `user_accounts`, `invites`, `audit_events`. Each policy: `USING (tenant_id::text = current_setting('app.current_tenant_id', TRUE) OR current_setting('app.bypass_rls', TRUE) = 'on')` with the same expression for `WITH CHECK` (so cross-tenant *writes* are rejected too).
+- **`accounts` is out of scope.** The `Account` row *is* the tenant — RLS adds little when the row's identity is the tenant context. Adding a different-shape policy (`WHERE id = current_tenant_id`) for it is a separate decision.
+- **Two session vars drive the policy**: `app.current_tenant_id` (set per-request), `app.bypass_rls` (escape valve). Set via `SET` (connection-scoped) by the middleware so all queries during a request inherit the same posture.
+- **`RLSMiddleware` after `AuthenticationMiddleware`.** For authenticated non-admin requests it sets the user's `tenant_id` and turns bypass off. For admin paths (`/admin/...`) it leaves bypass on. For anonymous / pre-auth flows (sign-in, sign-up, password-reset, invite-accept, email-verify) it leaves bypass on — those flows legitimately need cross-tenant lookups (find user by email, find invite by token) before authentication completes. The middleware also wraps the `request.user` lazy fetch in `bypass_rls()` so the auth backend's User lookup isn't blocked by stale RLS state.
+- **Non-superuser application role.** Postgres exempts `SUPERUSER` and `BYPASSRLS` roles from RLS entirely — the dev container's `keystone` user has both, so policies on their own do nothing. Migration `0013_app_role` creates a `keystone_app` role with `NOSUPERUSER NOBYPASSRLS NOLOGIN` and grants it `SELECT/INSERT/UPDATE/DELETE` on every table in `public`. The application connects as `keystone` and the connection signal immediately runs `SET ROLE keystone_app` to drop privileges. System contexts (migrations, tests, shells) skip the `SET ROLE` and stay as superuser, which gives them implicit cross-tenant access via the `BYPASSRLS` attribute (and also via the `app.bypass_rls` flag).
+- **`NOLOGIN` on the app role.** No password is committed in the migration; the role can't be authenticated to directly. The only way to "use" `keystone_app` is `SET ROLE` from a session that's already a member (the superuser is). Cleaner than baking a password into the schema.
+- **Connection-init signal in `apps/accounts/apps.py`.** Detects whether the current process is a system context (pytest, `migrate`, `dumpdata`, etc.) by inspecting `sys.argv` + `PYTEST_CURRENT_TEST`. System contexts get `SET app.bypass_rls = 'on'`; runtime gets `SET ROLE keystone_app`.
+- **`bypass_rls()` and `tenant_scope()` context managers** in `apps/accounts/security/rls.py`. Use `SET LOCAL` inside `transaction.atomic()` so the var is scoped to the wrapping transaction and reverts cleanly on exit. `bypass_rls()` is the explicit escape valve for code paths that legitimately need cross-tenant access (cron jobs, future admin tooling); `tenant_scope()` is for explicit re-scoping (also useful for tests).
+
+**Consequences:**
+- A code path that forgets `.filter(tenant_id=…)` returns zero rows from other tenants instead of leaking. The application-layer filter is still the first line; RLS is the second.
+- Migrations and tests run as superuser (system context) — RLS is effectively off for them. This keeps fixture creation, factory_boy, and pytest-django's flushing fast and unsurprising. Tests that specifically *exercise* RLS (`test_rls_policies.py`) explicitly switch to `keystone_app` via a `rls_runtime_role()` helper.
+- Two roles in production-ish posture: `keystone` (superuser, used for migrations / shell / management commands) and `keystone_app` (non-superuser, used for runtime web traffic via `SET ROLE`). Single `DATABASE_URL` — both roles reachable from the same login.
+- `WITH CHECK` enforces write-side isolation: an INSERT/UPDATE that targets another tenant fails with a Postgres error. The test suite exercises this on `Invite`.
+- Adds two reversible migrations (`0012_rls_policies`, `0013_app_role`); round-trip verified.
+- The Django admin at `/admin/` operates with bypass on (cross-tenant by design — platform staff use it). Detected by URL prefix in the middleware.
+- 6 new RLS-enforcement tests + the existing 224 still green.
+
+**Alternatives considered:**
+- *Separate `DATABASE_URL` for app vs admin.* Two URLs in `.env`, two `psycopg` pools, more rope to misconfigure. The single-superuser-with-`SET ROLE`-drop approach gives the same isolation with one URL.
+- *`FORCE ROW LEVEL SECURITY` on the tables.* Forces RLS for table owners, but `BYPASSRLS` *attribute* on a role still wins. So `FORCE` plus a superuser role still equals zero enforcement. The non-superuser app role is the actual fix.
+- *Use the auth backend / DRF authentication to set the session vars.* Authentication runs *during* a query (the user lookup is a query), creating a chicken-and-egg with RLS on `user_accounts`. The middleware-with-bypass-during-fetch dance handles it; binding to auth would be more invasive.
+- *RLS on `accounts` too.* The policy shape would have to be different (`id = current_tenant_id`, not `tenant_id = …`), and reading "your own tenant" is a low-leak risk anyway since every authenticated request *has* a `user.tenant`. Skip.
+- *Skip the app role + accept that RLS is structurally there but not enforced against the dev superuser.* Tempting (smaller PR) but ships zero defense-in-depth. The role split is what makes this PR actually deliver the thing it's named for.
+
+**Revisit when:** Multiple Django apps wire in (the connection signal lives in `accounts` for now; if a non-accounts domain needs to participate, lift it to a project-level `apps.py` or a config module), `accounts` gets RLS too (separate decision), a connection pooler enters the picture (PgBouncer in transaction-pooling mode is fine — `SET ROLE` and `SET app.*` happen per checkout in `connection_created`; session-pooling needs more thought), an analytical read replica is added (replica needs the same role + policies), or the `keystone` superuser role is renamed away from a per-org default.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->
