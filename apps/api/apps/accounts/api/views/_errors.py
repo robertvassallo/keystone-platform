@@ -73,6 +73,14 @@ class DuplicateMemberError(APIException):
     default_code = "duplicate_member"
 
 
+class DuplicateSlugError(APIException):
+    """422 — tenant rename collides with another tenant's slug."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "That URL slug is already taken."
+    default_code = "duplicate_slug"
+
+
 class WrongCurrentPasswordError(APIException):
     """422 — change-password supplied an incorrect current password."""
 

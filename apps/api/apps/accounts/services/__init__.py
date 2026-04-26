@@ -18,6 +18,7 @@ from .sign_in import sign_in
 from .sign_out import sign_out
 from .sign_up import sign_up
 from .update_profile import update_profile
+from .update_tenant import update_tenant
 from .verify_email import verify_email
 
 __all__ = [
@@ -40,6 +41,7 @@ __all__ = [
     "sign_up",
     "start_mfa_setup",
     "update_profile",
+    "update_tenant",
     "verify_email",
     "verify_mfa_challenge",
 ]

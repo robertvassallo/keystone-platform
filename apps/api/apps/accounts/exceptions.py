@@ -55,6 +55,14 @@ class DuplicateMember(AuthError):
     """Raised when invite-send sees a User already exists for the email."""
 
 
+class DuplicateSlug(AuthError):
+    """Raised when a tenant rename collides with another tenant's slug."""
+
+
+class InvalidSlug(AuthError):
+    """Raised when a slug fails the format check (regex / non-empty)."""
+
+
 class WrongCurrentPassword(AuthError):
     """Raised when ``change_password`` receives a wrong ``current_password``."""
 

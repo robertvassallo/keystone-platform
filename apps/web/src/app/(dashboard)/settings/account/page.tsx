@@ -1,11 +1,15 @@
 import Link from "next/link";
 import type { JSX } from "react";
 
-import { AccountCard } from "@/features/accounts";
+import { AccountEditPanel } from "@/features/accounts";
 import { getAccountServer } from "@/features/accounts/api/get-account-server";
+import { getMeServer } from "@/features/accounts/api/me-server";
 
 export default async function AccountSettingsPage(): Promise<JSX.Element> {
-  const result = await getAccountServer();
+  const [result, me] = await Promise.all([
+    getAccountServer(),
+    getMeServer(),
+  ]);
 
   if (result.kind === "forbidden") {
     return (
@@ -26,6 +30,8 @@ export default async function AccountSettingsPage(): Promise<JSX.Element> {
     );
   }
 
+  const canEdit = me !== null && (me.is_tenant_owner || me.is_staff);
+
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-6 py-12">
       <p className="text-sm">
@@ -44,7 +50,7 @@ export default async function AccountSettingsPage(): Promise<JSX.Element> {
         </p>
       </header>
 
-      <AccountCard account={result.account} />
+      <AccountEditPanel account={result.account} canEdit={canEdit} />
     </main>
   );
 }

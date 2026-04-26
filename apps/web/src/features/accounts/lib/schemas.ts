@@ -143,3 +143,30 @@ export const profileSchema = z.object({
 });
 
 export type ProfileInput = z.infer<typeof profileSchema>;
+
+const MAX_TENANT_NAME_LENGTH = 200;
+const MAX_TENANT_SLUG_LENGTH = 100;
+const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+export const tenantSettingsSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Name is required.")
+    .max(
+      MAX_TENANT_NAME_LENGTH,
+      `Name must be ${String(MAX_TENANT_NAME_LENGTH)} characters or fewer.`,
+    ),
+  slug: z
+    .string()
+    .min(1, "Slug is required.")
+    .max(
+      MAX_TENANT_SLUG_LENGTH,
+      `Slug must be ${String(MAX_TENANT_SLUG_LENGTH)} characters or fewer.`,
+    )
+    .regex(
+      SLUG_PATTERN,
+      "Use lowercase letters, digits, and hyphens only. No leading or trailing hyphens.",
+    ),
+});
+
+export type TenantSettingsInput = z.infer<typeof tenantSettingsSchema>;
