@@ -75,14 +75,24 @@ export default async function DashboardPage(): Promise<JSX.Element> {
             </Link>
           </li>
           {(me.is_staff || me.is_tenant_owner) && (
-            <li>
-              <Link
-                href="/users"
-                className="text-accent hover:underline focus-visible:underline"
-              >
-                Users
-              </Link>
-            </li>
+            <>
+              <li>
+                <Link
+                  href="/users"
+                  className="text-accent hover:underline focus-visible:underline"
+                >
+                  Users
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/settings/audit-log"
+                  className="text-accent hover:underline focus-visible:underline"
+                >
+                  Audit log
+                </Link>
+              </li>
+            </>
           )}
         </ul>
       </section>

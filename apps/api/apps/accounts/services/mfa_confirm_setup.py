@@ -5,6 +5,7 @@ from __future__ import annotations
 from django.db import transaction
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
+from apps.accounts.audit import AuditAction, AuditContext
 from apps.accounts.exceptions import (
     InvalidMFACode,
     MFAAlreadyEnrolled,
@@ -13,14 +14,21 @@ from apps.accounts.exceptions import (
 from apps.accounts.models import MFARecoveryCode, User
 
 from ._mfa_helpers import generate_recovery_codes, hash_recovery_code
+from .record_audit_event import record_audit_event
 
 
-def confirm_mfa_setup(*, user: User, code: str) -> list[str]:
+def confirm_mfa_setup(
+    *,
+    user: User,
+    code: str,
+    audit_context: AuditContext | None = None,
+) -> list[str]:
     """Confirm the user's pending TOTP device and return new recovery codes.
 
     Args:
         user: Authenticated user with a pending (unconfirmed) device.
         code: Six-digit TOTP code from the authenticator app.
+        audit_context: Optional ``AuditContext`` for the audit-log entry.
 
     Returns:
         A fresh list of plaintext recovery codes. They're shown once and
@@ -68,4 +76,12 @@ def confirm_mfa_setup(*, user: User, code: str) -> list[str]:
             for code in codes
         )
 
+    record_audit_event(
+        tenant=user.tenant,
+        action=AuditAction.MFA_ENROLLED,
+        context=audit_context,
+        target_id=user.pk,
+        target_type="user",
+        target_label=user.email,
+    )
     return codes

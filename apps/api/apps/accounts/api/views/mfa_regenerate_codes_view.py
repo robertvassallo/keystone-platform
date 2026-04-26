@@ -18,6 +18,7 @@ from apps.accounts.exceptions import MFANotEnrolled, WrongCurrentPassword
 from apps.accounts.models import User
 from apps.accounts.services import regenerate_recovery_codes
 
+from ._audit import audit_context_from_request
 from ._errors import MFANotEnrolledError, WrongCurrentPasswordError
 
 
@@ -47,6 +48,7 @@ class MFARegenerateRecoveryCodesView(APIView):
             codes = regenerate_recovery_codes(
                 user=user,
                 current_password=serializer.validated_data["current_password"],
+                audit_context=audit_context_from_request(request),
             )
         except WrongCurrentPassword as exc:
             raise WrongCurrentPasswordError() from exc

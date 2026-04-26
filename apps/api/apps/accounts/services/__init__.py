@@ -10,6 +10,7 @@ from .mfa_regenerate_recovery_codes import regenerate_recovery_codes
 from .mfa_start_setup import MFASetupPayload, start_mfa_setup
 from .mfa_verify_challenge import verify_mfa_challenge
 from .preview_invite import preview_invite
+from .record_audit_event import record_audit_event
 from .request_password_reset import request_password_reset
 from .revoke_invite import revoke_invite
 from .send_email_verification import send_email_verification
@@ -31,6 +32,7 @@ __all__ = [
     "disable_mfa",
     "get_mfa_status",
     "preview_invite",
+    "record_audit_event",
     "regenerate_recovery_codes",
     "request_password_reset",
     "revoke_invite",

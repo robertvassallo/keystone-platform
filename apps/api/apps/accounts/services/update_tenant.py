@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import re
 
+from apps.accounts.audit import AuditAction, AuditContext
 from apps.accounts.exceptions import DuplicateSlug, InvalidSlug
 from apps.accounts.models import Account
+
+from .record_audit_event import record_audit_event
 
 MAX_NAME_LENGTH = 200
 MAX_SLUG_LENGTH = 100
@@ -17,6 +20,7 @@ def update_tenant(
     tenant: Account,
     name: str | None = None,
     slug: str | None = None,
+    audit_context: AuditContext | None = None,
 ) -> Account:
     """Apply partial updates to ``tenant``'s name and/or slug.
 
@@ -29,6 +33,8 @@ def update_tenant(
             shape sign-up auto-derives).
         DuplicateSlug: ``slug`` is taken by another non-deleted tenant.
     """
+    old_name = tenant.name
+    old_slug = tenant.slug
     update_fields: list[str] = []
 
     if name is not None:
@@ -62,5 +68,20 @@ def update_tenant(
     if update_fields:
         update_fields.append("updated_at")
         tenant.save(update_fields=update_fields)
+
+        record_audit_event(
+            tenant=tenant,
+            action=AuditAction.TENANT_RENAMED,
+            context=audit_context,
+            target_id=tenant.pk,
+            target_type="account",
+            target_label=tenant.name,
+            metadata={
+                "old_name": old_name,
+                "new_name": tenant.name,
+                "old_slug": old_slug,
+                "new_slug": tenant.slug,
+            },
+        )
 
     return tenant

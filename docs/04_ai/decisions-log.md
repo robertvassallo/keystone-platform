@@ -596,4 +596,45 @@ Read literally, the code shipped a SaaS that requires Keystone employees to manu
 
 ---
 
+## 2026-04-26 — Audit log — service-level instrumentation, immutable rows
+
+**Status:** accepted
+
+**Context:** Multi-tenant SaaS needs a record of sensitive actions ("who invited that person?", "who renamed the tenant?", "did anyone enable / disable MFA on my account?"). Without one, the next compliance / security ask is unanswerable, and forensic incident response is reduced to grep on application logs. This PR adds the foundation: a tenant-scoped, owner-readable, immutable record of the actions we already take.
+
+**Decision:**
+- **Single Django app, single table.** `AuditEvent` lives in `apps/accounts/models/audit_event.py` alongside `User` / `Account` / `Invite`. Every event we record today comes from an accounts-domain service, and a separate Django app would mostly cross-import accounts. When a non-accounts domain wires in (billing, integrations), promote `apps/audit/` to its own app. KISS for now.
+- **Service-level instrumentation, not middleware.** Each business service that performs a sensitive action calls `record_audit_event(...)` after the success path. This binds the audit row to *domain semantics* (sign-in, MFA enrol, invite send) rather than HTTP signals (URL + method), which would force a brittle URL→action map and miss server-side flows. Trade-off: 9 services need to know about audit. Acceptable — the call site stays at the bottom of each service and is one stable line.
+- **`AuditContext` value type carries actor + IP + UA from the view layer.** Views build it from `request` via `audit_context_from_request(request)`, services pass it through to `record_audit_event`. Optional everywhere — services without a request context (cron jobs, management commands) call with `None` and the row carries blank IP / UA. Honours a single `X-Forwarded-For` hop for IP.
+- **`actor` rebinding for pre-login flows.** `sign_in`, `verify_mfa_challenge`, and `accept_invite` start with `request.user` anonymous. Each service builds a *new* `AuditContext` post-authentication that binds the just-created or just-authenticated `User` as the actor before calling `record_audit_event`. Otherwise auth events would all log as "system" instead of attributing to the user.
+- **Immutable rows.** No `updated_at`, no service-side update, no admin-side edit. Audit logs are *history*; mutating them defeats the purpose. The only "modify" path is delete-via-DB-superuser if rows ever need scrubbing for legal reasons; the application doesn't expose it.
+- **Snapshot the human-readable bits.** `actor_email` and `target_label` are captured at write time, not joined-from-FK at read time. Reason: actors and targets get soft-deleted, renamed, removed; the audit row should keep reading correctly years later. The FK to `User` is `SET_NULL` for the same reason — gracefully degrades, never blocks deletes.
+- **Action codes are namespaced strings, not an enum at the DB layer.** `auth.sign_in`, `tenant.renamed`, etc. — stable `CharField` values with a Python `StrEnum` (`AuditAction`) for type-safe references. **Never rename a code in place** — deprecate and add a new one — since stored rows reference them. Comment in `audit/constants.py` calls this out.
+- **What we record (8 actions today):** `auth.sign_in`, `auth.password_change`, `mfa.enrolled`, `mfa.disabled`, `mfa.recovery_codes_regenerated`, `invite.sent`, `invite.revoked`, `invite.accepted`, `tenant.renamed`. **What we deliberately don't record:** sign-in failures (high volume; the auth-scope throttle owns that signal), sign-out (low signal), profile updates (low signal), email-verification clicks (single-use, low forensic value), password-reset requests (anonymous and silent by design), generic profile / settings changes. Add to the list when a real ask materialises.
+- **One composite index** `(tenant, -created_at)` for the dominant "list this tenant's events newest first" query. Plus the default index on `action` (used for "did anyone enable MFA in this tenant?" lookups). No JSON index on `metadata` — query patterns there are unknown; add when needed.
+- **`/api/v1/audit/`** is owner-/staff-only via `IsTenantOwnerOrStaff`, paginated 25/page (matches `/users/`). No filters in this PR — same shape as the original users list before search/filter landed. Filters (action, actor, date range) are a follow-up.
+- **`/settings/audit-log` page** lists the rows in a server-rendered table, basic prev/next pagination. No filter UI yet. Dashboard widget gets an "Audit log" link visible only to owners and staff.
+- **The audit log doesn't audit itself.** Reading `/api/v1/audit/` doesn't generate an event — it would create infinite-volume noise (every page-load spam) and the "who read the log?" question is itself a separate audit need worth a separate decision.
+
+**Consequences:**
+- Every instrumented service signature gains a final `audit_context: AuditContext | None = None` kwarg. Backwards-compatible (None default) but mechanical to thread through.
+- New `AuditContext` value type creates one cross-domain primitive in `apps/accounts/audit/`; if a non-accounts domain instruments, it imports from there.
+- 16 new tests (4 record-event unit, 7 service-instrumentation, 5 view). Existing 208 tests unchanged.
+- Rendering the events page issues one query (page) + one count (total) + one tenant existence-check (auth middleware). Cheap.
+- The audit page is the third "owner/staff only" view; the dashboard widget now shows "Users" + "Audit log" together. Future per-tenant settings pages slot in alongside.
+
+**Alternatives considered:**
+- *Middleware for capture.* Would let us audit *every* HTTP request without service changes, including reads. Loses domain semantics (POST `/api/v1/auth/sign-in/` → `auth.sign_in`?? what about the MFA branch?), and most rows would be useless GETs. Skip.
+- *Shared `apps/audit/` Django app.* Right shape eventually; premature today when every event source lives in `apps/accounts/`. Splitting on the *first* cross-domain instrumentation rather than now keeps imports linear.
+- *Append-only via DB constraint (revoke UPDATE/DELETE perms).* Belt-and-braces immutability. Requires Postgres role separation that the platform doesn't have. Application-side discipline is sufficient until a regulated workload needs the harder guarantee.
+- *Separate `actor_id` for "system" events vs nullable FK.* The nullable FK + snapshotted email already handles the "deleted user" case; a sentinel "system" actor would just be more code for the same outcome.
+- *JSONB `details` column with arbitrary action-shape payload.* The `metadata` JSONField does this, but we keep it small and structured (a few short keys per event). If queries against `metadata` fields become common, lift them into typed columns or add a GIN index.
+- *Sign-in failure events.* Tempting for "did someone try to brute-force my account?" — but the auth-scope throttle (5/min/IP) caps the question, and recording every wrong-password attempt would dwarf the legitimate event volume. If a "suspicious sign-ins" feature ships, it gets its own action code (`auth.sign_in_failed`) and an opt-in.
+- *Records on the failure path of MFA verify.* Same concern — every wrong code adds a row. Throttle owns this signal.
+- *`AuditEvent.actor` as PROTECT instead of SET_NULL.* Would block User soft-delete forever because the rows pin the FK. SET_NULL plus the snapshotted `actor_email` is the right trade — history survives, deletes don't break.
+
+**Revisit when:** Filter UI on the audit page (action / actor / date range — extend selector + view), retention / archival policy is needed (cold storage, scheduled cleanup), an external SIEM integration is requested (event stream / webhook), a non-accounts domain wires in (split into `apps/audit/`), audit-row exports / GDPR data-subject requests need a path, or multi-tenant role distinctions richer than owner-vs-everyone-else change who can read the log.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->

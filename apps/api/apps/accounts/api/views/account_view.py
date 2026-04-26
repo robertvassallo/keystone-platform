@@ -20,6 +20,7 @@ from apps.accounts.exceptions import DuplicateSlug, InvalidSlug
 from apps.accounts.models import User
 from apps.accounts.services import update_tenant
 
+from ._audit import audit_context_from_request
 from ._errors import DuplicateSlugError
 
 
@@ -76,6 +77,7 @@ class AccountView(APIView):
                 tenant=user.tenant,
                 name=serializer.validated_data.get("name"),
                 slug=serializer.validated_data.get("slug"),
+                audit_context=audit_context_from_request(request),
             )
         except InvalidSlug as exc:
             raise ValidationError({"slug": [str(exc)]}) from exc

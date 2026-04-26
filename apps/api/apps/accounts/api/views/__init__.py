@@ -1,6 +1,7 @@
 """Public view surface for the accounts API."""
 
 from .account_view import AccountView
+from .audit_list_view import AuditListView
 from .change_password_view import ChangePasswordView
 from .email_verification_confirm_view import EmailVerificationConfirmView
 from .email_verification_request_view import EmailVerificationRequestView
@@ -25,6 +26,7 @@ from .users_list_view import UsersListView
 
 __all__ = [
     "AccountView",
+    "AuditListView",
     "ChangePasswordView",
     "EmailVerificationConfirmView",
     "EmailVerificationRequestView",

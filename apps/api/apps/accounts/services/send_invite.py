@@ -9,6 +9,7 @@ from django.db import transaction
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
+from apps.accounts.audit import AuditAction, AuditContext
 from apps.accounts.emails import send_invite_email
 from apps.accounts.exceptions import (
     DuplicateInvite,
@@ -18,9 +19,16 @@ from apps.accounts.models import Account, Invite, User
 from apps.accounts.selectors import get_user_by_email
 
 from ._invite_token import generate_invite_token, hash_invite_token
+from .record_audit_event import record_audit_event
 
 
-def send_invite(*, tenant: Account, email: str, invited_by: User) -> Invite:
+def send_invite(
+    *,
+    tenant: Account,
+    email: str,
+    invited_by: User,
+    audit_context: AuditContext | None = None,
+) -> Invite:
     """Create a pending invite + send the email.
 
     Raises:
@@ -64,6 +72,15 @@ def send_invite(*, tenant: Account, email: str, invited_by: User) -> Invite:
 
     transaction.on_commit(
         lambda: send_invite_email(invite=invite, accept_url=accept_url),
+    )
+
+    record_audit_event(
+        tenant=tenant,
+        action=AuditAction.INVITE_SENT,
+        context=audit_context,
+        target_id=invite.pk,
+        target_type="invite",
+        target_label=invite.email,
     )
 
     return invite

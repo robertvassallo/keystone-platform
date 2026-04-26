@@ -19,6 +19,7 @@ from apps.accounts.models import User
 from apps.accounts.selectors import InviteStatus, list_invites
 from apps.accounts.services import send_invite
 
+from ._audit import audit_context_from_request
 from ._errors import DuplicateInviteError, DuplicateMemberError
 
 
@@ -77,6 +78,7 @@ class InvitesListCreateView(APIView):
                 tenant=user.tenant,
                 email=serializer.validated_data["email"],
                 invited_by=user,
+                audit_context=audit_context_from_request(request),
             )
         except DuplicateMember as exc:
             raise DuplicateMemberError() from exc
