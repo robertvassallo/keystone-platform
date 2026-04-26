@@ -1,87 +1,103 @@
-# Keystone — Full-Stack Starter
+# Keystone Platform
 
-A reusable starter for full-stack web and dashboard projects. Carries the AI workflow, baseline configuration, and standards docs you want present from day one — no application code yet.
+Multi-tenant SaaS platform — Django + Next.js + Postgres. Email-only auth, optional MFA, password reset + email verification, per-tenant user management, invite-based onboarding.
 
-> The keystone is the central wedge that locks an arch in place. This template is the piece every project built on it rests on.
+This repo is the running product. The boilerplate that seeds new projects of the same shape lives at [`keystone`](https://github.com/robertvassallo/keystone); new projects fork from there, not from here.
 
-## What you get
+## What's shipped
 
-- **AI workflow** — Claude Code config, five reviewer subagents, slash commands
-- **Standards docs** — semantic HTML, CSS/SASS, Tailwind, JavaScript, TypeScript, React, Python (Django), SQL (Postgres), accessibility, testing, git workflow
-- **Architecture docs** — stack, monorepo layout, data model, security, auth
-- **UX docs** — design tokens, dashboard layout, forms, data display
-- **Tooling configs** — ESLint flat config, Prettier, Stylelint, SQLFluff, ruff + mypy
-- **Editor + GitHub** — VS Code workspace settings, recommended extensions, debug configs, PR + issue templates
+- **Auth** — sign-up / sign-in / sign-out, email-only login, Django sessions, "remember me," password reset, change password, RFC 7807 error bodies
+- **MFA** — optional TOTP enrolment + 10 hashed recovery codes; sign-in challenge with a 5-minute partial-auth ticket
+- **Email verification** — soft-block; banner on every dashboard route until the user clicks the link
+- **Tenancy** — shared-schema multi-tenant; one tenant per user, many users per tenant; tenant-scoped queries; explicit `Account.owner`
+- **Invites** — owner sends an email invite; recipient lands on `/accept-invite`, sets a password, joins the inviting tenant; revoke + 7-day TTL
+- **Roles** — `IsTenantOwnerOrStaff` gates admin actions; `is_staff` reserved for platform-staff (Keystone employees)
+- **Tenant rename** — owner edits name + slug from `/settings/account`
+- **Profile fields** — first / last name; computed `display_name` shown across the dashboard
+- **Users admin** — paginated list with search + status filter, detail page, all tenant-scoped
+- **CI** — GitHub Actions runs lint / typecheck / tests on every PR; `web` and `api` are required checks for `main`
 
 ## Stack
 
 | Layer | Choice |
 |---|---|
-| Frontend | Next.js 15 (App Router) + React 19 + TypeScript |
+| Frontend | Next.js 15 (App Router) + React 19 + TypeScript strict |
 | Styling | Tailwind 3 + SCSS modules + design tokens |
-| Backend | Django 5 + DRF + Python 3.12 |
+| Backend | Django 5 + DRF + Python 3.12 (mypy strict) |
 | Database | Postgres 16 |
-| Package managers | pnpm + uv |
+| Package managers | pnpm 9 + uv |
+| CI | GitHub Actions (Postgres service container) |
 
-Detail and rationale: `docs/01_architecture/stack.md`.
+Versions and rationale: `docs/01_architecture/stack.md`.
 
-## How to use this template
+## Quick start
 
 ```bash
-# Clone as a starting point
-git clone <this-repo>.git my-new-project
-cd my-new-project
+# Install deps
+pnpm install
+uv sync
 
-# Reset history (optional — start fresh)
-rm -rf .git && git init -b main
+# Bring up the dev DB (Postgres + Redis)
+docker compose -f infra/docker/compose.dev.yml up -d
 
-# Open in VS Code; install recommended extensions when prompted
-code .
+# Migrate
+uv run --directory apps/api python manage.py migrate
+
+# Run dev servers (two terminals)
+uv run --directory apps/api python manage.py runserver
+pnpm --filter @keystone/web dev
 ```
 
-Read `CLAUDE.md` for the AI working agreement, then open `docs/00_overview.md` for a guided tour.
-
-For the canonical install commands (Linux / macOS / WSL) and the Docker path for the dev DB, see `docs/01_architecture/dev-setup.md`.
+Web at <http://localhost:3000>, API at <http://localhost:8000>. Detailed install (Linux / macOS / WSL): `docs/01_architecture/dev-setup.md`.
 
 ## Layout
 
 ```
 .
-├── CLAUDE.md              # AI agreement + task router (read first)
-├── README.md              # this file
-├── .claude/               # Claude Code config + agents + commands
-├── .vscode/               # editor workspace
-├── .github/               # PR + issue templates
+├── apps/
+│   ├── api/             # Django + DRF
+│   │   └── apps/accounts/   # User, Account, Invite, MFA
+│   └── web/             # Next.js (App Router, RSC-first)
+│       └── src/
+│           ├── app/         # routes
+│           ├── features/    # accounts, users, invites
+│           └── shared/      # ui primitives, lib helpers
+├── packages/
+│   ├── tokens/          # design tokens → CSS + Tailwind preset + .d.ts
+│   └── config/          # shared eslint / tailwind / tsconfig presets
+├── infra/
+│   └── docker/          # compose.dev.yml (Postgres + Redis)
+├── .github/
+│   ├── workflows/       # CI (lint / typecheck / tests)
+│   ├── ISSUE_TEMPLATE/
+│   └── pull_request_template.md
 ├── docs/
-│   ├── 00_overview.md     # narrative guide to the doc tree
-│   ├── 01_architecture/   # stack, monorepo, data-model, security, auth
-│   ├── 02_standards/      # semantic-html, css-sass, tailwind, js, ts, react, python, sql, a11y, testing, git
-│   ├── 03_ux/             # design tokens, dashboard layout, forms, data display
-│   └── 04_ai/             # prompting, agents, review checklist, decisions log
-└── (lint/format configs at root)
+│   ├── 01_architecture/   # stack, data-model, security, auth, monorepo, dev-setup, api-conventions
+│   ├── 02_standards/      # semantic-html, css-sass, tailwind, ts, react, python, sql, a11y, testing, git-workflow, project-structure
+│   ├── 03_ux/             # tokens, dashboard-layout, forms, data-display
+│   └── 04_ai/             # decisions-log, agents, prompting, review-checklist
+├── CLAUDE.md            # AI working agreement (read first)
+└── README.md            # this file
 ```
 
-## What's intentionally NOT here yet
+## Working on the platform
 
-- Application code (`apps/web`, `apps/api`)
-- CI workflows
-- License (choose per-project)
+Start with **`CLAUDE.md`** — it has the hard rules, the doc-router table, and the workflow every PR follows. Decisions baked into the codebase live in `docs/04_ai/decisions-log.md` (the source of truth for "why is it like this?").
 
-These are deferred until the first real project lands. `docs/01_architecture/monorepo.md` describes the target shape.
+To start a feature in Claude Code:
 
-## Adding to this template
+```
+/new-feature <slug>
+```
 
-1. Make the change.
-2. Update the relevant standards doc.
-3. Add a `decisions-log.md` entry if it's non-obvious.
-4. PR with the standard checklist.
+This branches off `main`, asks for scope, and runs the standard plan → implement → test → PR flow.
 
-## Tooling expected on the dev machine
+## Tooling expected
 
-- Node 22 LTS · pnpm 9 · Python 3.12 · uv · Postgres 16 (or Docker) · VS Code
+Node 22 LTS · pnpm 9 · Python 3.12 · uv · Postgres 16 (Docker is fine) · VS Code recommended.
 
-Full install commands for Linux / macOS / WSL plus a Docker path for the dev DB live in `docs/01_architecture/dev-setup.md`.
+Full install commands for Linux / macOS / WSL plus the Docker path for the dev DB: `docs/01_architecture/dev-setup.md`.
 
 ## License
 
-Add a `LICENSE` file when you fork this template for a real project.
+Proprietary — see `LICENSE`. (`UNLICENSED` for the npm and pyproject distributions; internal use only.)
