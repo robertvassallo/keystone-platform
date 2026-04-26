@@ -8,6 +8,7 @@
 
 export { changePassword } from "./change-password";
 export { confirmPasswordReset } from "./confirm-password-reset";
+export { requestEmailVerification } from "./request-email-verification";
 export { getAccount } from "./get-account";
 export { getMe } from "./me";
 export {

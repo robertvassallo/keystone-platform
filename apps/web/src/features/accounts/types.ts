@@ -20,6 +20,7 @@ export interface User {
   readonly is_active: boolean;
   readonly is_staff: boolean;
   readonly tenant: TenantSummary | null;
+  readonly email_verified_at: string | null;
   readonly created_at: string;
 }
 
