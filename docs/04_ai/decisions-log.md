@@ -561,4 +561,39 @@ Read literally, the code shipped a SaaS that requires Keystone employees to manu
 
 ---
 
+## 2026-04-26 — Tenant rename — owner edits name + slug
+
+**Status:** accepted
+
+**Context:** Until this PR, the tenant name + slug were write-once: set by `services.sign_up` (derived from the email's local part) and never editable. That's fine for a sign-up demo but lousy for actual customers — "alice's account" is rarely what an org wants displayed in the dashboard. The owner needs an "Edit" button.
+
+**Decision:**
+- **PATCH `/api/v1/account/`** — partial update, body `{name?, slug?}`. Owner-or-staff only via `IsTenantOwnerOrStaff`. New `AccountUpdateSerializer` whitelists writable fields; unknown keys (`owner`, `id`, etc.) silently dropped. `MeUpdateSerializer` is the precedent.
+- **`account_view.get_permissions()`** — first view to use per-method permissions. GET stays `IsAuthenticated` (any member can read their tenant); PATCH is `IsTenantOwnerOrStaff` (only owners can write). Cleaner than putting `IsTenantOwnerOrStaff` on the whole class and reading `request.method` inside.
+- **Slug remains editable.** Today the slug is purely cosmetic — it's not a routing primitive (no `/t/<slug>/...` URL paths) and not a unique key in any external system. Renaming is safe. **When subdomain / path-prefix routing lands, this changes** — slug becomes load-bearing and rename needs a redirect or rename-confirmation flow.
+- **No slug-history table.** Old slug just disappears. KISS posture matching the rest of the platform: if no consumer depends on slug stability, don't pay for the table. Revisit when there's a real "external integration broke when tenant renamed" event.
+- **Slug regex enforced server-side** — `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`. Lowercase letters, digits, hyphens; no leading or trailing hyphen. Matches the shape that `services._account_naming.derive_account_slug` auto-derives at sign-up. Frontend mirrors the regex in Zod for synchronous client-side feedback. Server is authoritative — bad slugs return 400 with a per-field error.
+- **Collision check is application-layer**, not DB-layer. The partial unique index on `(slug WHERE deleted_at IS NULL)` would also catch it, but raising `DuplicateSlug` *before* the save lets us return a clean 422 `duplicate_slug` instead of an `IntegrityError` race. Race window between the check and the save is tiny in practice, and a stray IntegrityError is acceptable as a hard failure if it ever fires.
+- **422 `duplicate_slug` mapping**, **400 for bad regex.** Pattern matches password-reset / invite-accept's tokens-vs-validation split: 400 for "you sent malformed input that fails our schema," 422 for "your input is well-formed but a domain rule rejects it (collision)."
+- **`AccountEditPanel`** — small Client Component holder around `AccountCard` + `TenantSettingsForm`. Toggles between read view + edit form. Read view shows an "Edit tenant" button only when `me.is_staff || me.is_tenant_owner`. The page (`/settings/account`) is a Server Component fetching both `account` and `me`, passing `canEdit` as a boolean down. Keeps the edit-state ephemeral (browser-local) without round-tripping a query param.
+- **`router.refresh()` on save** — re-renders the dashboard's tenant line + account card with the new name. No optimistic update, no manual cache invalidation; Server Components refetch.
+- **Test mypy override gains `comparison-overlap`.** `factory.Sequence(...)` declarations on `AccountFactory.name` confuse django-stubs: it sees the field type as `Sequence` instead of `str`, so `assert tenant.name == "Renamed"` fails as a non-overlapping equality check. Same noise as the earlier `attr-defined` / `assignment` overrides for tests. Worth keeping mypy strict on app code, lenient on test fixtures.
+
+**Consequences:**
+- Customers can rename their tenant from the dashboard. The dashboard's uppercase tenant line and the account card both update on the next render.
+- One new domain exception (`DuplicateSlug`), one new validator exception (`InvalidSlug`), one new API exception (`DuplicateSlugError`). All follow the established pattern.
+- `AccountView` is the first view in the codebase using per-method permissions. The pattern works without ceremony; if more multi-method views land, this becomes a small style precedent.
+- 18 backend tests + 10 frontend tests added. Full sweep: 208 pytest + 85 vitest, all green.
+
+**Alternatives considered:**
+- *Slug immutable, name editable.* Conservative: avoids any future breakage from rename-and-something-cached. But losing the ability to fix a bad sign-up-derived slug ("alice-2") would be a real annoyance. Editable is the friendlier default; we can lock it down if external integrations start caring.
+- *Two endpoints (`PATCH /name`, `PATCH /slug`).* Granular but pure ceremony when both are tiny string fields. One PATCH covers both.
+- *Auto-suggest a fresh slug on rename.* `derive_account_slug(new_name)` could auto-fill the slug field when name changes. UX-nice but invisibly couples two fields and surprises users who want them different. Skip; explicit is better.
+- *Inline-edit on AccountCard (no separate form).* Cleaner-looking, but inline edit + validation + cancel is a lot of state for a card that only needs editing rarely. Toggle to a dedicated form is the simpler shape.
+- *Slug uniqueness across deleted-too rather than only-non-deleted.* Already locked in by the partial unique index from the original Account migration. Revisit only if soft-delete-restore semantics need to consider slug collisions.
+
+**Revisit when:** Subdomain or path-prefix routing lands (slug becomes load-bearing → add slug-history or rename-confirm flow), tenant-rename should write to the audit log (when audit log lands), per-tenant settings beyond name/slug enter scope (logo, primary color, default time zone — extend `AccountUpdateSerializer`), or tenant deletion / archive flows arrive.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->

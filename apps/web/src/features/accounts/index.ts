@@ -1,6 +1,7 @@
 /** Public surface of the accounts feature. */
 
 export { AccountCard } from "./components/AccountCard";
+export { AccountEditPanel } from "./components/AccountEditPanel";
 export { ChangePasswordForm } from "./components/ChangePasswordForm";
 export { EmailVerificationBanner } from "./components/EmailVerificationBanner";
 export { ProfileForm } from "./components/ProfileForm";
@@ -12,6 +13,7 @@ export { ResetPasswordForm } from "./components/ResetPasswordForm";
 export { SignInForm } from "./components/SignInForm";
 export { SignOutButton } from "./components/SignOutButton";
 export { SignUpForm } from "./components/SignUpForm";
+export { TenantSettingsForm } from "./components/TenantSettingsForm";
 export type {
   ChangePasswordInput,
   ForgotPasswordInput,
@@ -23,6 +25,7 @@ export type {
   ResetPasswordInput,
   SignInInput,
   SignUpInput,
+  TenantSettingsInput,
 } from "./lib/schemas";
 export type {
   Account,

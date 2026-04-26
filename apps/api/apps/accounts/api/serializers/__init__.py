@@ -1,6 +1,7 @@
 """Public serializer surface for the accounts API."""
 
 from .account_serializer import AccountSerializer, TenantSummarySerializer
+from .account_update_serializer import AccountUpdateSerializer
 from .change_password_serializer import ChangePasswordSerializer
 from .email_verification_confirm_serializer import (
     EmailVerificationConfirmSerializer,
@@ -30,6 +31,7 @@ from .user_serializer import UserSerializer
 
 __all__ = [
     "AccountSerializer",
+    "AccountUpdateSerializer",
     "ChangePasswordSerializer",
     "EmailVerificationConfirmSerializer",
     "InviteAcceptSerializer",
