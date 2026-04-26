@@ -74,7 +74,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
               Two-factor authentication
             </Link>
           </li>
-          {me.is_staff && (
+          {(me.is_staff || me.is_tenant_owner) && (
             <li>
               <Link
                 href="/users"

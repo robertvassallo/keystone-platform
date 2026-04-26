@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from config.authentication import SessionAuth
-from config.permissions import IsStaff
+from config.permissions import IsTenantOwnerOrStaff
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
@@ -22,7 +22,7 @@ class UserDetailView(APIView):
     """Read-only detail view for a single user — staff only."""
 
     authentication_classes = (SessionAuth,)
-    permission_classes = (IsStaff,)
+    permission_classes = (IsTenantOwnerOrStaff,)
 
     @extend_schema(
         responses={
