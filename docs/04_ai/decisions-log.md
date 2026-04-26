@@ -478,4 +478,51 @@ Lightweight ADRs (Architecture Decision Records). One entry per non-obvious deci
 
 ---
 
+## 2026-04-26 — Invites — multi-user tenants without a Membership table
+
+**Status:** accepted
+
+**Context:** Until this PR, `Account` had effectively one User per tenant — sign-up auto-created both, and there was no way for a second person to join. This blocks every interesting SaaS shape (admin invites a teammate, owner adds finance / support / etc.). Two choices presented themselves: ship a full `Membership` table now (multi-org membership + per-tenant roles) or ship invites first and keep `User.tenant` as the only join point. We picked the latter — invites first, membership later.
+
+**Decision:**
+- **No `Membership` table (yet).** `User.tenant` stays as the FK to one Account. A user can be in exactly one tenant; a tenant can have many users. Multi-org membership / per-tenant roles are a separate feature when justified. This keeps every existing selector and view (which all assume `tenant_id` on `User`) working without rewrite.
+- **`Account.owner` lands now**, even without membership. Long-deferred from the `accounts-tenancy` PR ("add explicit ownership when membership ships"). Backfilled for existing accounts to the single User per tenant. Stays nullable at the DB layer because sign-up creates the Account before the User exists; the application layer always sets it post-commit. A non-null DB constraint would mean a more elaborate sign-up flow (chicken-and-egg: User.tenant requires Account, Account.owner requires User). Worth re-tightening if invariants are ever violated in practice.
+- **`Invite` model with hashed tokens.** Plaintext token = `secrets.token_urlsafe(32)` (~43 chars), stored only in the email URL. Database stores SHA-256 hex (same shape as MFA recovery codes). Single-use enforced via `accepted_at`; revocable via `revoked_at`. **7-day TTL** — long enough for emails that sit in inboxes overnight or over a weekend, short enough that a leaked link can't outlive the user noticing.
+- **Partial unique index** on `(tenant, email)` where `accepted_at IS NULL AND revoked_at IS NULL`. At most one *pending* invite per (tenant, email); a re-invite after revoke or after acceptance both work without DB-level conflict. Matches the email-active partial unique pattern from `User`.
+- **Two-migration shape.** `0009` adds `Account.owner` + creates `Invite`. `0010` is a `RunPython` data migration that backfills `Account.owner` for existing tenants by selecting the earliest user per tenant. The backfill is reversible (clears `owner` on every row).
+- **Five endpoints, mounted at two URL prefixes.** Admin endpoints under `/api/v1/invites/` (staff-only, tenant-scoped):
+  - `POST /` → create + send
+  - `GET /?status=…` → list pending / accepted / revoked / expired
+  - `DELETE /<uuid>/` → revoke
+  
+  Public endpoints under `/api/v1/auth/invite/` (anonymous, throttled):
+  - `GET /preview/?uid=&token=` → tenant name + email + expiry (for the accept page to render)
+  - `POST /accept/` → consume token + create User + sign in
+  
+  This split mirrors the password-reset / verify-email pattern: admin operations on the resource live at the resource URL, public token-bearing flows live under `/auth/`.
+- **Sign-up + invite-accept are separate code paths.** Sign-up still goes through `services.sign_up` and auto-creates a tenant. `accept_invite` creates a User in the *invite's* tenant — no auto-create. Two services, no shared trunk, simpler to reason about. The TOCTOU (User materialises between send and accept) maps to `DuplicateEmail`.
+- **Email is sent on `transaction.on_commit`.** Same posture as the verify-email PR — a transaction rollback never leaks an email referencing an invite that doesn't exist.
+- **Accept page is top-level**, not under `(auth)/`. Same reasoning as `/verify-email`: the user might be signed-in or signed-out when they click; the auth-layout's redirect-on-signed-in would break the signed-in case.
+- **Send-invite returns 422 `duplicate_member` if a User already exists** for the email — even if that User is in another tenant. Reason: cross-tenant membership isn't a thing yet, and silently creating a second User with the same email would break the active-email unique partial index. Workaround once multi-tenant membership lands: either add a member-by-existing-email path or relax the email uniqueness constraint to per-tenant.
+- **InvitesPanel renders inline on `/users`**, not on a dedicated `/settings/members` page. Keeps the admin's surface tight: one place to send invites, one place to see pending invites, one place to manage existing users. A dedicated members page becomes worth its own URL when role / per-member metadata enters scope.
+
+**Consequences:**
+- Two reversible migrations. Round-trip verified locally (`migrate accounts 0008` → forward to 0010).
+- New deps: none. SHA-256 + `secrets.token_urlsafe` are stdlib; templates reuse the existing `accounts/emails/` pattern.
+- Existing `services.sign_up` now sets `Account.owner` after the User is created. This is the only sign-up-flow change — sign-up still doesn't accept profile fields, name, or invite tokens.
+- The frontend has a new `features/invites/` folder. Per "one feature per domain" — invites are conceptually a separate resource from users (different lifecycle, different consumers, different data shape), even though they're rendered on `/users` for now.
+- 12 service tests, 12 view tests, 9 frontend tests = 33 new tests covering token round-trip, expiry, revoke, double-accept, throttle, cross-tenant 404, the form happy path + error surfacing.
+
+**Alternatives considered:**
+- *Ship `Membership` table now.* The right architecture but a much bigger PR — every existing selector / view that filters by `tenant_id` would need to switch to "tenants the user is a member of". For a solo bootstrap, the YAGNI version (one tenant per user) covers the 90% case. Re-evaluate when "I want a user in two orgs" is a real ask.
+- *Roles in the Invite (`role: admin | member`).* No role-distinct-from-`is_staff` exists yet. Adding `role` here would create a column whose only enum value is "member" — pure speculation. Skip.
+- *Single-shot accept-and-sign-in token (no preview).* The preview page lets the recipient see *which tenant* they're joining before committing — important when invites cross orgs. Two endpoints + a render step is friendlier than one POST.
+- *Resend invite as a first-class action.* The same effect is achievable today by revoking and sending again. A real "resend" would either re-send the same plaintext (means we'd have to keep it) or rotate the token (means a new email flowing the same row). Neither is hard but neither is needed yet.
+- *Hard-block sign-up for invitee email.* If someone signs up directly with an email that has a pending invite for a different tenant, do we block? Currently no — the sign-up auto-creates a fresh tenant and the pending invite becomes orphaned (still pending, just never used). Acceptable today; revisit when this matters.
+- *Public unique constraint on `Invite.token_hash`.* Useful as defense-in-depth but `secrets.token_urlsafe(32)` collisions are negligible. The application-layer SHA-256 lookup is enough; a unique index would just add a slow-path rejection for an event we don't expect.
+
+**Revisit when:** Multi-org membership is a real ask (`Membership` table + `User.tenant` becomes a default-tenant pointer or goes away), per-tenant roles are needed (start with `admin` / `member` on `Membership`, gate revoke / send / etc.), invite-related events should appear in an audit log, "resend invite" gets asked for explicitly, or `Account.owner` enforcement needs to move to a non-null DB constraint.
+
+---
+
 <!-- Add new decisions above this line. Keep most recent at the top. -->

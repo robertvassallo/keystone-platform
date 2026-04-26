@@ -1,9 +1,9 @@
 """Account — the tenant entity.
 
-A user belongs to exactly one Account today (the relationship is 1:1).
-The "owner" is implicit: the single ``User`` whose ``tenant`` FK points
-at this Account. When invite / membership flows ship, an explicit
-``owner`` field will land alongside the membership table.
+Every Account has an explicit ``owner`` ``User`` (nullable at the DB
+layer to keep sign-up's transaction simple, but always set in practice
+post-commit). Invite / membership flows let other users join the same
+Account; their ``User.tenant`` FK points at this row.
 """
 
 from __future__ import annotations
@@ -29,6 +29,15 @@ class Account(models.Model):
     slug = models.SlugField(
         max_length=100,
         help_text="Lowercase URL-safe identifier; unique among non-deleted accounts.",
+    )
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="owned_accounts",
+        help_text="The User who created this tenant. Nullable only during sign-up.",
     )
 
     created_at = models.DateTimeField(default=timezone.now, editable=False)

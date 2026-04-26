@@ -41,6 +41,38 @@ class InvalidVerificationTokenError(APIException):
     default_code = "invalid_verification_token"
 
 
+class InvalidInviteTokenError(APIException):
+    """422 — invite token is missing, malformed, expired, used, or revoked."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "This invite link is invalid or has expired."
+    default_code = "invalid_invite_token"
+
+
+class InvalidInviteStateError(APIException):
+    """422 — invite cannot transition from its current state."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "Invite is not in a state that can be changed."
+    default_code = "invalid_invite_state"
+
+
+class DuplicateInviteError(APIException):
+    """422 — a pending invite for this (tenant, email) already exists."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "A pending invite for this address already exists."
+    default_code = "duplicate_invite"
+
+
+class DuplicateMemberError(APIException):
+    """422 — invite-send sees a User already exists for the email."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    default_detail = "A user with this email already exists."
+    default_code = "duplicate_member"
+
+
 class WrongCurrentPasswordError(APIException):
     """422 — change-password supplied an incorrect current password."""
 

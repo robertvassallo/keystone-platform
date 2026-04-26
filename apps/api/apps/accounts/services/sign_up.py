@@ -59,5 +59,10 @@ def sign_up(*, email: str, password: str) -> User:
             password=password,
             tenant=account,
         )
+        # Set the explicit owner now that the User exists. Account.owner
+        # stays nullable at the DB layer to avoid a chicken-and-egg with
+        # User.tenant; we tighten it in the application layer instead.
+        account.owner = user
+        account.save(update_fields=["owner", "updated_at"])
         transaction.on_commit(lambda: send_email_verification(user=user))
         return user

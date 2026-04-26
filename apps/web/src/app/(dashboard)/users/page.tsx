@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { JSX } from "react";
 
+import { InvitesPanel } from "@/features/invites";
+import { listInvitesServer } from "@/features/invites/api/list-invites-server";
 import {
   USER_STATUS_VALUES,
   UsersList,
@@ -54,12 +56,15 @@ export default async function UsersPage({
   };
   const isFiltered = filters.q !== null || filters.status !== null;
 
-  const result = await listUsersServer({
-    page,
-    pageSize: PAGE_SIZE,
-    q: filters.q,
-    status: filters.status,
-  });
+  const [result, invitesResult] = await Promise.all([
+    listUsersServer({
+      page,
+      pageSize: PAGE_SIZE,
+      q: filters.q,
+      status: filters.status,
+    }),
+    listInvitesServer({ status: "pending" }),
+  ]);
 
   if (result.kind === "forbidden") {
     return (
@@ -89,6 +94,10 @@ export default async function UsersPage({
           {result.page.total} {isFiltered ? "match" : "total"}
         </p>
       </header>
+
+      <InvitesPanel
+        invites={invitesResult.kind === "ok" ? invitesResult.data : []}
+      />
 
       <UsersListFilters filters={filters} />
       <UsersList users={result.data} isFiltered={isFiltered} />

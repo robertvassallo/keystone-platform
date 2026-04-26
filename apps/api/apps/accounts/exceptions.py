@@ -39,6 +39,22 @@ class InvalidVerificationToken(AuthError):
     """Raised when an email-verification token is missing, malformed, or expired."""
 
 
+class InvalidInviteToken(AuthError):
+    """Raised when an invite token is missing, malformed, expired, used, or revoked."""
+
+
+class InvalidInviteState(AuthError):
+    """Raised when an invite cannot transition from its current state."""
+
+
+class DuplicateInvite(AuthError):
+    """Raised when a pending invite already exists for the (tenant, email)."""
+
+
+class DuplicateMember(AuthError):
+    """Raised when invite-send sees a User already exists for the email."""
+
+
 class WrongCurrentPassword(AuthError):
     """Raised when ``change_password`` receives a wrong ``current_password``."""
 
